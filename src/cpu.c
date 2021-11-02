@@ -23,20 +23,13 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  switch (a & 0x0F)
+  // ld rr, nn
+  if ((a & 0x0F) == 1 && ((a & 0xF0) >> 4) < 4)
   {
-  case 1:
-  {
-    switch (a & 0xF0)
-    {
-    case 0:
-    {
-      cpu->regs.bc = (c << 8) | b;
-      cpu->regs.pc += 3;
-      cpu->clock += 12;
-      return;
-    }
-    }
-  }
+    uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.sp };
+    *dests[(a & 0xF0) >> 4] = (c << 8) | b;
+    cpu->regs.pc += 3;
+    cpu->clock += 12;
+    return;
   }
 }
