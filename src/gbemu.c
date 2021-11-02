@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <SFML/Window.h>
 #include <SFML/Graphics.h>
+#include "cpu.h"
 
 int main(int argc, char *argv[])
 {
@@ -11,7 +12,7 @@ int main(int argc, char *argv[])
 
   sfColor background_color = sfColor_fromRGB(15, 56, 15);
   sfRenderWindow *window = sfRenderWindow_create(
-    (sfVideoMode) { 800, 600, 32 }, "GBEMU", sfDefaultStyle, NULL
+    (sfVideoMode) { 800, 720, 32 }, "GBEMU", sfDefaultStyle, NULL
     );
 
   while (sfRenderWindow_isOpen(window))
