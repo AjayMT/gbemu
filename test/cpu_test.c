@@ -57,7 +57,7 @@ UTEST(cpu, ld_r_r)
 UTEST(cpu, ld_r_hl)
 {
   struct memory mem;
-  memory_init(&mem);
+  memory_init(&mem, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 

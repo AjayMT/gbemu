@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <SFML/Window.h>
 #include <SFML/Graphics.h>
+#include "memory.h"
 #include "cpu.h"
 
 #define PIXEL_COLUMNS 160
@@ -11,9 +12,23 @@
 
 int main(int argc, char *argv[])
 {
-  // to suppress compiler warning about unused arguments
-  (void)argc;
-  (void)argv;
+  if (argc < 2)
+  {
+    printf("Usage: gbemu <filename>\n");
+    return 1;
+  }
+
+  FILE *rom = fopen(argv[1], "r");
+  fseek(rom, 0, SEEK_END);
+  off_t len = ftello(rom);
+  fseek(rom, 0, SEEK_SET);
+  uint8_t *rom_data = malloc(len);
+  fread(rom_data, 1, len, rom);
+
+  struct memory mem;
+  memory_init(&mem, rom_data);
+  struct cpu cpu;
+  cpu_init(&cpu);
 
   sfRenderWindow *window = sfRenderWindow_create(
     (sfVideoMode) { PIXEL_COLUMNS * PIXEL_SIZE, PIXEL_ROWS * PIXEL_SIZE, 32 },
