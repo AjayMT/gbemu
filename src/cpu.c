@@ -32,62 +32,63 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
+  uint8_t upper = (a & 0xF0) >> 4;
+  uint8_t lower = a & 0xF;
+  uint8_t *dests[] = {
+    (uint8_t *)&cpu->regs.bc,       // c
+    (uint8_t *)&cpu->regs.de,       // e
+    (uint8_t *)&cpu->regs.hl,       // l
+    ((uint8_t *)&cpu->regs.af) + 1, // a
+    ((uint8_t *)&cpu->regs.bc) + 1, // b
+    ((uint8_t *)&cpu->regs.de) + 1, // d
+    ((uint8_t *)&cpu->regs.hl) + 1  // h
+  };
+  uint8_t sources[] = {
+    (cpu->regs.bc & 0xFF00) >> 8, // b
+    cpu->regs.bc & 0xFF,          // c
+    (cpu->regs.de & 0xFF00) >> 8, // d
+    cpu->regs.de & 0xFF,          // e
+    (cpu->regs.hl & 0xFF00) >> 8, // h
+    cpu->regs.hl & 0xFF,          // l
+    0,                            // <none>
+    (cpu->regs.af & 0xFF00) >> 8  // a
+  };
+
   // ld rr, nn
-  if ((a & 0x0F) == 1 && ((a & 0xF0) >> 4) < 4)
+  if (lower == 1 && upper < 4)
   {
     uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.sp };
-    *dests[(a & 0xF0) >> 4] = (c << 8) | b;
+    *dests[upper] = (c << 8) | b;
     cpu->regs.pc += 3;
     cpu->clock += 12;
     return;
   }
 
   // ld r, r
-  if (((a & 0x0F) < 6 || (a & 0x0F) == 7) && ((a & 0xF0) >> 4) >= 4 && ((a & 0xF0) >> 4) <= 6)
+  if ((lower < 6 || lower == 7) && upper >= 4 && upper <= 6)
   {
-    uint8_t *dests[] = {
-      ((uint8_t *)&cpu->regs.bc) + 1, // b
-      ((uint8_t *)&cpu->regs.de) + 1, // d
-      ((uint8_t *)&cpu->regs.hl) + 1  // h
-    };
-    uint8_t sources[] = {
-      (cpu->regs.bc & 0xFF00) >> 8, // b
-      cpu->regs.bc & 0xFF,          // c
-      (cpu->regs.de & 0xFF00) >> 8, // d
-      cpu->regs.de & 0xFF,          // e
-      (cpu->regs.hl & 0xFF00) >> 8, // h
-      cpu->regs.hl & 0xFF,          // l
-      0,                            // <none>
-      (cpu->regs.af & 0xFF00) >> 8  // a
-    };
-    *dests[((a & 0xF0) >> 4) - 4] = sources[a & 0x0F];
+    *dests[upper] = sources[lower];
     cpu->regs.pc++;
     cpu->clock += 4;
     return;
   }
-  if (
-    ((a & 0x0F) - 8 < 6 || (a & 0x0F) == 0x0F) && ((a & 0xF0) >> 4) >= 4 && ((a & 0xF0) >> 4) <= 7
-    )
+  if (((lower >= 8 && lower <= 0xD) || lower == 0xF) && upper >= 4 && upper <= 7)
   {
-    uint8_t *dests[] = {
-      (uint8_t *)&cpu->regs.bc,       // c
-      (uint8_t *)&cpu->regs.de,       // e
-      (uint8_t *)&cpu->regs.hl,       // l
-      ((uint8_t *)&cpu->regs.af) + 1, // a
-    };
-    uint8_t sources[] = {
-      (cpu->regs.bc & 0xFF00) >> 8, // b
-      cpu->regs.bc & 0xFF,          // c
-      (cpu->regs.de & 0xFF00) >> 8, // d
-      cpu->regs.de & 0xFF,          // e
-      (cpu->regs.hl & 0xFF00) >> 8, // h
-      cpu->regs.hl & 0xFF,          // l
-      0,                            // <none>
-      (cpu->regs.af & 0xFF00) >> 8  // a
-    };
-    *dests[((a & 0xF0) >> 4) - 4] = sources[(a & 0x0F) - 8];
+    *dests[upper - 4] = sources[lower - 8];
     cpu->regs.pc++;
     cpu->clock += 4;
+    return;
+  }
+
+  // ld r, (hl)
+  if (((lower == 6 && upper <= 6) || (lower == 0xE && upper <= 7)) && upper >= 4)
+  {
+    if (lower == 6)
+      *dests[upper] = memory_read(mem, cpu->regs.hl);
+    else if (lower == 0xE)
+      *dests[upper - 4] = memory_read(mem, cpu->regs.hl);
+    cpu->regs.pc++;
+    cpu->clock += 8;
     return;
   }
 }

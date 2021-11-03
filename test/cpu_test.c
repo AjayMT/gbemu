@@ -53,3 +53,27 @@ UTEST(cpu, ld_r_r)
   ASSERT_EQ(cpu.clock, (uint32_t)36);
   ASSERT_EQ(cpu.regs.pc, 9);
 }
+
+UTEST(cpu, ld_r_hl)
+{
+  struct memory mem;
+  memory_init(&mem);
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  uint8_t expected_byte = memory_read(&mem, cpu.regs.hl);
+
+  cpu.regs.af = ((~expected_byte) << 8) | (uint8_t)(~expected_byte);
+  cpu_run_instruction(&cpu, &mem, 0x7E, 0, 0);
+  ASSERT_EQ(cpu.regs.af, (uint16_t)((expected_byte << 8) | (uint8_t)(~expected_byte)));
+
+  cpu.regs.bc = ((~expected_byte) << 8) | (uint8_t)(~expected_byte);
+  cpu_run_instruction(&cpu, &mem, 0x4E, 0, 0);
+  ASSERT_EQ(cpu.regs.bc, (uint16_t)(((~expected_byte) << 8) | expected_byte));
+
+  cpu_run_instruction(&cpu, &mem, 0x46, 0, 0);
+  ASSERT_EQ(cpu.regs.bc, (uint16_t)((expected_byte << 8) | expected_byte));
+
+  ASSERT_EQ(cpu.clock, (uint32_t)24);
+  ASSERT_EQ(cpu.regs.pc, 3);
+}
