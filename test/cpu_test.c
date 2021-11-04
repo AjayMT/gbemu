@@ -105,3 +105,35 @@ UTEST(cpu, add_a_r)
   ASSERT_EQ(4, cpu.regs.pc);
   ASSERT_EQ((uint32_t)16, cpu.clock);
 }
+
+UTEST(cpu, add_a_hl)
+{
+  struct memory mem;
+  uint8_t value = 0;
+  memory_init(&mem, &value);
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu.regs.af = 0;
+  value = 3;
+  cpu_run_instruction(&cpu, &mem, 0x86, 0, 0);
+  ASSERT_EQ(0x300, cpu.regs.af);
+
+  cpu.regs.af = 0xF000;
+  value = 0xF0;
+  cpu_run_instruction(&cpu, &mem, 0x86, 0, 0);
+  ASSERT_EQ(0xE001, cpu.regs.af);
+
+  cpu.regs.af = 0xFF00;
+  value = 0xFF;
+  cpu_run_instruction(&cpu, &mem, 0x86, 0, 0);
+  ASSERT_EQ(0xFE03, cpu.regs.af);
+
+  cpu.regs.af = 0xF000;
+  value = 0x10;
+  cpu_run_instruction(&cpu, &mem, 0x86, 0, 0);
+  ASSERT_EQ(9, cpu.regs.af);
+
+  ASSERT_EQ(4, cpu.regs.pc);
+  ASSERT_EQ((uint32_t)32, cpu.clock);
+}
