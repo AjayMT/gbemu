@@ -11,7 +11,6 @@ void memory_init(struct memory *mem, uint8_t *cartridge_data)
 uint8_t memory_read(struct memory *mem, uint16_t addr)
 {
   if (addr < 0x4000) return mem->cartridge_data[addr];
-
   return 0;
 }
 

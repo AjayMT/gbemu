@@ -57,23 +57,51 @@ UTEST(cpu, ld_r_r)
 UTEST(cpu, ld_r_hl)
 {
   struct memory mem;
-  memory_init(&mem, NULL);
+  uint8_t zero = 0;
+  memory_init(&mem, &zero);
   struct cpu cpu;
   cpu_init(&cpu);
 
-  uint8_t expected_byte = memory_read(&mem, cpu.regs.hl);
+  cpu.regs.af = 0xFFFF;
+  cpu_run_instruction(&cpu, &mem, 0x7E, 0, 0); // ld a, (hl)
+  ASSERT_EQ(cpu.regs.af, 0xFF);
 
-  cpu.regs.af = ((~expected_byte) << 8) | (uint8_t)(~expected_byte);
-  cpu_run_instruction(&cpu, &mem, 0x7E, 0, 0);
-  ASSERT_EQ(cpu.regs.af, (uint16_t)((expected_byte << 8) | (uint8_t)(~expected_byte)));
+  cpu.regs.bc = 0xFFFF;
+  cpu_run_instruction(&cpu, &mem, 0x4E, 0, 0); // ld c, (hl)
+  ASSERT_EQ(cpu.regs.bc, 0xFF00);
 
-  cpu.regs.bc = ((~expected_byte) << 8) | (uint8_t)(~expected_byte);
-  cpu_run_instruction(&cpu, &mem, 0x4E, 0, 0);
-  ASSERT_EQ(cpu.regs.bc, (uint16_t)(((~expected_byte) << 8) | expected_byte));
-
-  cpu_run_instruction(&cpu, &mem, 0x46, 0, 0);
-  ASSERT_EQ(cpu.regs.bc, (uint16_t)((expected_byte << 8) | expected_byte));
+  cpu_run_instruction(&cpu, &mem, 0x46, 0, 0); // ld b, (hl)
+  ASSERT_EQ(cpu.regs.bc, 0);
 
   ASSERT_EQ(cpu.clock, (uint32_t)24);
   ASSERT_EQ(cpu.regs.pc, 3);
+}
+
+UTEST(cpu, add_a_r)
+{
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu.regs.af = 0;
+  cpu.regs.bc = 3;
+  cpu_run_instruction(&cpu, NULL, 0x81, 0, 0);
+  ASSERT_EQ(0x300, cpu.regs.af);
+  ASSERT_EQ(3, cpu.regs.bc);
+
+  cpu.regs.af = 0xF000;
+  cpu_run_instruction(&cpu, NULL, 0x87, 0, 0);
+  ASSERT_EQ(0xE001, cpu.regs.af);
+
+  cpu.regs.af = 0xFF00;
+  cpu_run_instruction(&cpu, NULL, 0x87, 0, 0);
+  ASSERT_EQ(0xFE03, cpu.regs.af);
+
+  cpu.regs.af = 0xF000;
+  cpu.regs.hl = 0x1000;
+  cpu_run_instruction(&cpu, NULL, 0x84, 0, 0);
+  ASSERT_EQ(9, cpu.regs.af);
+  ASSERT_EQ(0x1000, cpu.regs.hl);
+
+  ASSERT_EQ(4, cpu.regs.pc);
+  ASSERT_EQ((uint32_t)16, cpu.clock);
 }

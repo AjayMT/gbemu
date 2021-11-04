@@ -91,4 +91,19 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     cpu->clock += 8;
     return;
   }
+
+  // add a, r
+  if ((lower <= 5 || lower == 7) && upper == 8)
+  {
+    uint8_t *dest = ((uint8_t *)&cpu->regs.af) + 1;
+    uint16_t orig = *dest;
+    *dest += sources[lower];
+    cpu->regs.af &= ~0b100;
+    if (orig + sources[lower] > 0xFF) cpu->regs.af |= 1; // carry flag
+    if ((orig & 0xF) + (sources[lower] & 0xF) > 0xF) cpu->regs.af |= 0b10; // half-carry flag
+    if (*dest == 0) cpu->regs.af |= 0b1000;
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
 }
