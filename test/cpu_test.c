@@ -137,3 +137,63 @@ UTEST(cpu, add_a_hl)
   ASSERT_EQ(4, cpu.regs.pc);
   ASSERT_EQ((uint32_t)32, cpu.clock);
 }
+
+UTEST(cpu, adc_a_r)
+{
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu.regs.af = 0x601;
+  cpu.regs.bc = 3;
+  cpu_run_instruction(&cpu, NULL, 0x89, 0, 0);
+  ASSERT_EQ(0xa00, cpu.regs.af);
+
+  cpu.regs.af = 0xF001;
+  cpu_run_instruction(&cpu, NULL, 0x8F, 0, 0);
+  ASSERT_EQ(0xE101, cpu.regs.af);
+
+  cpu.regs.af = 0xFF00;
+  cpu_run_instruction(&cpu, NULL, 0x8F, 0, 0);
+  ASSERT_EQ(0xFE03, cpu.regs.af);
+
+  cpu.regs.af = 0xF001;
+  cpu.regs.hl = 0xF00;
+  cpu_run_instruction(&cpu, NULL, 0x8C, 0, 0);
+  ASSERT_EQ(11, cpu.regs.af);
+  ASSERT_EQ(0xF00, cpu.regs.hl);
+
+  ASSERT_EQ(4, cpu.regs.pc);
+  ASSERT_EQ((uint32_t)16, cpu.clock);
+}
+
+UTEST(cpu, adc_a_hl)
+{
+  struct memory mem;
+  uint8_t value = 0;
+  memory_init(&mem, &value);
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu.regs.af = 1;
+  value = 3;
+  cpu_run_instruction(&cpu, &mem, 0x8E, 0, 0);
+  ASSERT_EQ(0x400, cpu.regs.af);
+
+  cpu.regs.af = 0xF000;
+  value = 0xF0;
+  cpu_run_instruction(&cpu, &mem, 0x8E, 0, 0);
+  ASSERT_EQ(0xE001, cpu.regs.af);
+
+  cpu.regs.af = 0xFF01;
+  value = 0xFF;
+  cpu_run_instruction(&cpu, &mem, 0x8E, 0, 0);
+  ASSERT_EQ(0xFF03, cpu.regs.af);
+
+  cpu.regs.af = 0xF001;
+  value = 0xF;
+  cpu_run_instruction(&cpu, &mem, 0x8E, 0, 0);
+  ASSERT_EQ(11, cpu.regs.af);
+
+  ASSERT_EQ(4, cpu.regs.pc);
+  ASSERT_EQ((uint32_t)32, cpu.clock);
+}

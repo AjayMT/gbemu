@@ -24,15 +24,18 @@ void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, u
   (void)b;
 }
 
-void add_to_register_a(struct cpu *cpu, uint8_t value)
+void add_to_register_a(struct cpu *cpu, uint8_t value, uint8_t carry)
 {
   uint8_t *dest = ((uint8_t *)&cpu->regs.af) + 1;
   uint16_t orig = *dest;
-  *dest += value;
+  *dest += value + carry;
   cpu->regs.af &= ~0b100;
-  if (orig + value > 0xFF) cpu->regs.af |= 1; // carry flag
-  if ((orig & 0xF) + (value & 0xF) > 0xF) cpu->regs.af |= 0b10; // half-carry flag
+  if (orig + value + carry > 0xFF) cpu->regs.af |= 1; // carry flag
+  else cpu->regs.af &= ~1;
+  if ((orig & 0xF) + (value & 0xF) + carry > 0xF) cpu->regs.af |= 0b10; // half-carry flag
+  else cpu->regs.af &= ~0b10;
   if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
+  else cpu->regs.af &= ~0b1000;
 }
 
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
@@ -106,7 +109,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   // add a, r
   if ((lower <= 5 || lower == 7) && upper == 8)
   {
-    add_to_register_a(cpu, sources[lower]);
+    add_to_register_a(cpu, sources[lower], 0);
     cpu->regs.pc++;
     cpu->clock += 4;
     return;
@@ -115,7 +118,25 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   // add a, (hl)
   if (a == 0x86)
   {
-    add_to_register_a(cpu, memory_read(mem, cpu->regs.hl));
+    add_to_register_a(cpu, memory_read(mem, cpu->regs.hl), 0);
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // adc a, r
+  if (((lower >= 8 && lower <= 0xD) || lower == 0xF) && upper == 8)
+  {
+    add_to_register_a(cpu, sources[lower - 8], (cpu->regs.af & 1));
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // adc a, (hl)
+  if (a == 0x8E)
+  {
+    add_to_register_a(cpu, memory_read(mem, cpu->regs.hl), (cpu->regs.af & 1));
     cpu->regs.pc++;
     cpu->clock += 8;
     return;
