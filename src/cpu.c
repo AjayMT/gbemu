@@ -27,30 +27,30 @@ void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, u
 void add_to_register_a(struct cpu *cpu, uint8_t value, uint8_t secondary_function)
 {
   uint8_t carry = 0;
-  if (secondary_function) carry = cpu->regs.af & 1;
+  if (secondary_function) carry = (cpu->regs.af & (1 << 4)) >> 4;
   uint8_t *dest = ((uint8_t *)&cpu->regs.af) + 1;
   uint16_t orig = *dest;
   *dest += value + carry;
 
   cpu->regs.af &= ~0xFF;
-  if (orig + value + carry > 0xFF) cpu->regs.af |= 1; // carry flag
-  if ((orig & 0xF) + (value & 0xF) + carry > 0xF) cpu->regs.af |= 0b10; // half-carry flag
-  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
+  if (orig + value + carry > 0xFF) cpu->regs.af |= 1 << 4; // carry flag
+  if ((orig & 0xF) + (value & 0xF) + carry > 0xF) cpu->regs.af |= 1 << 5; // half-carry flag
+  if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
 }
 
 void sub_from_register_a(struct cpu *cpu, uint8_t value, uint8_t secondary_function)
 {
   uint8_t carry = 0;
-  if (secondary_function) carry = cpu->regs.af & 1;
+  if (secondary_function) carry = (cpu->regs.af & (1 << 4)) >> 4;
   uint8_t *dest = ((uint8_t *)&cpu->regs.af) + 1;
   uint16_t orig = *dest;
   *dest -= (value + carry);
 
   cpu->regs.af &= ~0xFF;
-  cpu->regs.af |= 0b100;
-  if (orig < (uint16_t)value + carry) cpu->regs.af |= 1; // carry flag
-  if ((orig & 0xF) < (uint16_t)(value & 0xF) + carry) cpu->regs.af |= 0b10; // half-carry flag
-  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
+  cpu->regs.af |= (1 << 6);
+  if (orig < (uint16_t)value + carry) cpu->regs.af |= 1 << 4; // carry flag
+  if ((orig & 0xF) < (uint16_t)(value & 0xF) + carry) cpu->regs.af |= 1 << 5; // half-carry flag
+  if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
 }
 
 void and_or_xor_register_a(struct cpu *cpu, uint8_t value, uint8_t xor)
@@ -65,9 +65,9 @@ void and_or_xor_register_a(struct cpu *cpu, uint8_t value, uint8_t xor)
   else
   {
     *a &= value;
-    *f = 0b10;
+    *f = 1 << 5;
   }
-  if (*a == 0) *f |= 0b1000;
+  if (*a == 0) *f |= 1 << 7;
 }
 
 void or_or_cp_register_a(struct cpu *cpu, uint8_t value, uint8_t cp)
@@ -76,15 +76,15 @@ void or_or_cp_register_a(struct cpu *cpu, uint8_t value, uint8_t cp)
   uint8_t *a = f + 1;
   if (cp)
   {
-    *f = 0b100;
-    if (*a == value) *f |= 0b1000; // zero flag
-    if (*a < value) *f |= 1; // carry flag
-    if ((*a & 0xF) < (value & 0xF)) *f |= 0b10; // half-carry flag
+    *f = 1 << 6;
+    if (*a == value) *f |= 1 << 7; // zero flag
+    if (*a < value) *f |= 1 << 4; // carry flag
+    if ((*a & 0xF) < (value & 0xF)) *f |= 1 << 5; // half-carry flag
   }
   else
   {
     *a |= value;
-    if (*a == 0) *f = 0b1000;
+    if (*a == 0) *f = 1 << 7;
     else *f = 0;
   }
 }
@@ -92,18 +92,18 @@ void or_or_cp_register_a(struct cpu *cpu, uint8_t value, uint8_t cp)
 void inc_register_or_value(struct cpu *cpu, uint8_t *dest)
 {
   (*dest)++;
-  cpu->regs.af &= ~0b1110;
-  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
-  if ((*dest & 0xF) == 0) cpu->regs.af |= 0b10; // half-carry flag
+  cpu->regs.af &= (uint8_t)(~0b1110) << 4;
+  if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
+  if ((*dest & 0xF) == 0) cpu->regs.af |= 1 << 5; // half-carry flag
 }
 
 void dec_register_or_value(struct cpu *cpu, uint8_t *dest)
 {
   (*dest)--;
-  cpu->regs.af &= ~0b1110;
-  cpu->regs.af |= 0b100;
-  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
-  if ((*dest & 0xF) == 0xF) cpu->regs.af |= 0b10; // half-carry flag
+  cpu->regs.af &= (uint8_t)(~0b1110) << 4;
+  cpu->regs.af |= 1 << 6;
+  if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
+  if ((*dest & 0xF) == 0xF) cpu->regs.af |= 1 << 5; // half-carry flag
 }
 
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
@@ -298,11 +298,11 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint32_t orig = cpu->regs.hl;
     cpu->regs.hl += sources[upper];
 
-    cpu->regs.af &= ~0b111;
-    if (orig + sources[upper] > 0xFFFF) cpu->regs.af |= 1; // carry flag
+    cpu->regs.af &= (uint8_t)(~0b111) << 4;
+    if (orig + sources[upper] > 0xFFFF) cpu->regs.af |= 1 << 4; // carry flag
     // checking if there was a half-carry from bit 11 to bit 12
     if (((orig & 0xFFFF) ^ sources[upper] ^ ((orig + sources[upper]) & 0xFFFF)) & 0x1000)
-      cpu->regs.af |= 0b10; // half-carry flag
+      cpu->regs.af |= 1 << 5; // half-carry flag
 
     cpu->regs.pc++;
     cpu->clock += 8;
