@@ -213,7 +213,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  // inc r/hl, dec r/hl
+  // inc r/(hl), dec r/(hl)
   if (upper <= 3 && (lower == 0xC || lower == 0xD))
   {
     if (lower == 0xC) inc_register_or_value(cpu, dests[upper]);
@@ -240,7 +240,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  // ld r/hl d8
+  // ld r/(hl) d8
   if (upper <= 3 && (lower == 6 || lower == 0xE))
   {
     uint8_t dest_idx = upper;
@@ -261,6 +261,49 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.sp };
     if (lower == 3) (*dests[upper])++;
     else (*dests[upper])--;
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // ld (rr) a
+  if (upper <= 3 && lower == 2)
+  {
+    uint16_t addresses[] = { cpu->regs.bc, cpu->regs.de, cpu->regs.hl, cpu->regs.hl };
+    memory_write(mem, addresses[upper], cpu->regs.af >> 8);
+    if (upper == 2) cpu->regs.hl++;
+    else if (upper == 3) cpu->regs.hl--;
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // ld a (rr)
+  if (upper <= 3 && lower == 0xA)
+  {
+    uint16_t addresses[] = { cpu->regs.bc, cpu->regs.de, cpu->regs.hl, cpu->regs.hl };
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    *a = memory_read(mem, addresses[upper]);
+    if (upper == 2) cpu->regs.hl++;
+    else if (upper == 3) cpu->regs.hl--;
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // add hl rr
+  if (upper <= 3 && lower == 9)
+  {
+    uint16_t sources[] = { cpu->regs.bc, cpu->regs.de, cpu->regs.hl, cpu->regs.sp };
+    uint32_t orig = cpu->regs.hl;
+    cpu->regs.hl += sources[upper];
+
+    cpu->regs.af &= ~0b111;
+    if (orig + sources[upper] > 0xFFFF) cpu->regs.af |= 1; // carry flag
+    // checking if there was a half-carry from bit 11 to bit 12
+    if (((orig & 0xFFFF) ^ sources[upper] ^ ((orig + sources[upper]) & 0xFFFF)) & 0x1000)
+      cpu->regs.af |= 0b10; // half-carry flag
+
     cpu->regs.pc++;
     cpu->clock += 8;
     return;
