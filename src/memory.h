@@ -3,20 +3,33 @@
 
 #include <stdint.h>
 
-struct memory {
-  uint8_t *cartridge_data;        // 0000 - 3FFF is the fixed bank, 4000 - 7FFF are switchable banks
-  uint8_t vram[0x2000];           // 8000 - 9FFF
-  uint8_t external_ram[0x2000];   // A000 - BFFF
-  uint8_t wram[0x2000];           // C000 - DFFF
-  uint8_t oam[0xA0];              // FE00 - FE9F
-  uint8_t ioreg[0x80];            // FF00 - FF7F
-  uint8_t hram[0x7f];             // FF80 - FFFE
-  uint8_t ie;                     // FFFF
+#define ADDR_REG_LCD_Y              0xFF44
+#define ADDR_REG_DIVIDER            0xFF04
+#define ADDR_REG_INTERNAL_CLOCK_LOW 0xFF03
+#define ADDR_REG_DMA                0xFF46
+#define ADDR_REG_INPUT              0xFF00
+#define ADDR_REG_LCD_STATUS         0xFF41
+#define ADDR_ROM_BANK_SWITCH_START  0x2000
+#define ADDR_ROM_BANK_SWITCH_END    0x4000
+
+typedef void (*memory_write_handler_t)(uint16_t, uint8_t);
+
+enum ppu_mode {
+  pmLCD_MODE_HBLANK = 1,
+  pmLCD_MODE_VBLANK = 2,
+  pmLCD_MODE_OAM = 2,
+  pmLCD_MODE_TRANSFER = 3
 };
 
-// E000 - FDFF is an echo of C000 - DDFF
-// FEA0 - FEFF is not usable
+struct memory {
+  uint8_t *cartridge_data;
+  uint32_t cartridge_bank;
+  uint8_t *memory;
+  enum ppu_mode ppu_mode;
+  memory_write_handler_t write_handler;
+};
 
-void memory_init(struct memory *mem, uint8_t *cartridge_data);
+void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler);
+uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu);
 uint8_t memory_read(struct memory *mem, uint16_t addr);
 void memory_write(struct memory *mem, uint16_t addr, uint8_t value);

@@ -73,7 +73,7 @@ UTEST(cpu, ld_r_hl)
 {
   struct memory mem;
   uint8_t zero = 0;
-  memory_init(&mem, &zero);
+  memory_init(&mem, &zero, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -96,7 +96,7 @@ UTEST(cpu, ld_hl_r)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -145,7 +145,7 @@ UTEST(cpu, add_a_hl)
 {
   struct memory mem;
   uint8_t value = 0;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -230,7 +230,7 @@ UTEST(cpu, adc_a_hl)
 {
   struct memory mem;
   uint8_t value = 0;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -312,7 +312,7 @@ UTEST(cpu, sub_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -385,7 +385,7 @@ UTEST(cpu, sbc_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -531,7 +531,7 @@ UTEST(cpu, xor_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -604,7 +604,7 @@ UTEST(cpu, or_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -677,7 +677,7 @@ UTEST(cpu, cp_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -741,7 +741,7 @@ UTEST(cpu, inc_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -779,7 +779,7 @@ UTEST(cpu, dec_hl)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -815,7 +815,7 @@ UTEST(cpu, ld_hl_d8)
 {
   uint8_t value = 0;
   struct memory mem;
-  memory_init(&mem, &value);
+  memory_init(&mem, &value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -862,7 +862,7 @@ UTEST(cpu, ld_rr_a)
 {
   uint16_t value = 0;
   struct memory mem;
-  memory_init(&mem, (uint8_t *)&value);
+  memory_init(&mem, (uint8_t *)&value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
@@ -888,7 +888,7 @@ UTEST(cpu, ld_a_rr)
 {
   uint16_t value = 0;
   struct memory mem;
-  memory_init(&mem, (uint8_t *)&value);
+  memory_init(&mem, (uint8_t *)&value, NULL);
   struct cpu cpu;
   cpu_init(&cpu);
 
