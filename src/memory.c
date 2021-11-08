@@ -16,7 +16,6 @@ uint8_t memory_read(struct memory *mem, uint16_t addr)
 
 void memory_write(struct memory *mem, uint16_t addr, uint8_t value)
 {
-  (void)mem;
-  (void)addr;
-  (void)value;
+  // TODO remove this -- only used for testing!
+  if (addr < 0x4000) mem->cartridge_data[addr] = value;
 }

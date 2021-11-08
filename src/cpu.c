@@ -89,6 +89,23 @@ void or_or_cp_register_a(struct cpu *cpu, uint8_t value, uint8_t cp)
   }
 }
 
+void inc_register_or_value(struct cpu *cpu, uint8_t *dest)
+{
+  (*dest)++;
+  cpu->regs.af &= ~0b1110;
+  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
+  if ((*dest & 0xF) == 0) cpu->regs.af |= 0b10; // half-carry flag
+}
+
+void dec_register_or_value(struct cpu *cpu, uint8_t *dest)
+{
+  (*dest)--;
+  cpu->regs.af &= ~0b1110;
+  cpu->regs.af |= 0b100;
+  if (*dest == 0) cpu->regs.af |= 0b1000; // zero flag
+  if ((*dest & 0xF) == 0xF) cpu->regs.af |= 0b10; // half-carry flag
+}
+
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
 {
   if (a == 0xCB)
@@ -119,7 +136,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     (cpu->regs.af & 0xFF00) >> 8  // a
   };
 
-  // ld rr, nn
+  // ld rr nn
   if (lower == 1 && upper < 4)
   {
     uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.sp };
@@ -129,7 +146,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  // ld r, r
+  // ld r r
   if ((lower < 6 || lower == 7) && upper >= 4 && upper <= 6)
   {
     *dests[upper] = sources[lower];
@@ -145,13 +162,22 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  // ld r, (hl)
+  // ld r (hl)
   if (((lower == 6 && upper <= 6) || (lower == 0xE && upper <= 7)) && upper >= 4)
   {
     if (lower == 6)
       *dests[upper] = memory_read(mem, cpu->regs.hl);
     else if (lower == 0xE)
       *dests[upper - 4] = memory_read(mem, cpu->regs.hl);
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // ld (hl) r
+  if (upper == 7 && (lower <= 5 || lower == 7))
+  {
+    memory_write(mem, cpu->regs.hl, sources[lower]);
     cpu->regs.pc++;
     cpu->clock += 8;
     return;
@@ -183,6 +209,59 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     arithmetic_logic_operations[upper - 0xC](cpu, b, lower == 0xE);
     cpu->regs.pc += 2;
+    cpu->clock += 8;
+    return;
+  }
+
+  // inc r/hl, dec r/hl
+  if (upper <= 3 && (lower == 0xC || lower == 0xD))
+  {
+    if (lower == 0xC) inc_register_or_value(cpu, dests[upper]);
+    else dec_register_or_value(cpu, dests[upper]);
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+  if (upper <= 3 && (lower == 4 || lower == 5))
+  {
+    uint8_t mem_read = upper == 3;
+    uint8_t value;
+    if (mem_read) value = memory_read(mem, cpu->regs.hl);
+    else value = *dests[upper + 4];
+
+    if (lower == 4) inc_register_or_value(cpu, &value);
+    else dec_register_or_value(cpu, &value);
+
+    if (mem_read) memory_write(mem, cpu->regs.hl, value);
+    else *dests[upper + 4] = value;
+
+    cpu->regs.pc++;
+    cpu->clock += mem_read ? 12 : 4;
+    return;
+  }
+
+  // ld r/hl d8
+  if (upper <= 3 && (lower == 6 || lower == 0xE))
+  {
+    uint8_t dest_idx = upper;
+    if (lower == 6) dest_idx += 4;
+
+    uint8_t mem_read = upper == 3 && lower == 6;
+    if (mem_read) memory_write(mem, cpu->regs.hl, b);
+    else *dests[dest_idx] = b;
+
+    cpu->clock += mem_read ? 12 : 8;
+    cpu->regs.pc += 2;
+    return;
+  }
+
+  // inc rr, dec rr
+  if (upper <= 3 && (lower == 3 || lower == 0xB))
+  {
+    uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.sp };
+    if (lower == 3) (*dests[upper])++;
+    else (*dests[upper])--;
+    cpu->regs.pc++;
     cpu->clock += 8;
     return;
   }
