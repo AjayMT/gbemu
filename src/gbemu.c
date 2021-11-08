@@ -10,6 +10,12 @@
 #define PIXEL_ROWS    144
 #define PIXEL_SIZE    5
 
+void memory_write_handler(uint16_t addr, uint8_t value)
+{
+  (void)addr;
+  (void)value;
+}
+
 int main(int argc, char *argv[])
 {
   if (argc < 2)
@@ -26,7 +32,7 @@ int main(int argc, char *argv[])
   fread(rom_data, 1, len, rom);
 
   struct memory mem;
-  memory_init(&mem, rom_data);
+  memory_init(&mem, rom_data, memory_write_handler);
   struct cpu cpu;
   cpu_init(&cpu);
 

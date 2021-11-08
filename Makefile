@@ -7,4 +7,4 @@ gbemu_tests: src/* test/*
 
 .PHONY: clean
 clean:
-	rm -fr gbemu gbemu_tests
+	rm -fr gbemu gbemu_tests *.dSYM
