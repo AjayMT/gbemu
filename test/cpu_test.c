@@ -2,6 +2,21 @@
 #include "../src/cpu.h"
 #include "utest.h"
 
+UTEST(cpu, nop)
+{
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu_run_instruction(&cpu, NULL, 0, 0, 0);
+  ASSERT_EQ(0, cpu.regs.af);
+  ASSERT_EQ(0, cpu.regs.bc);
+  ASSERT_EQ(0, cpu.regs.de);
+  ASSERT_EQ(0, cpu.regs.hl);
+  ASSERT_EQ(0, cpu.regs.sp);
+  ASSERT_EQ(0, cpu.regs.pc);
+  ASSERT_EQ((uint32_t)4, cpu.clock);
+}
+
 UTEST(cpu, ld_rr_d16)
 {
   struct cpu cpu;

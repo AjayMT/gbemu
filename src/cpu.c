@@ -136,6 +136,14 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     (cpu->regs.af & 0xFF00) >> 8  // a
   };
 
+  // nop
+  if (a == 0)
+  {
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
   // ld rr nn
   if (lower == 1 && upper < 4)
   {
