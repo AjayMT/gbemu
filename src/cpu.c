@@ -106,6 +106,23 @@ void dec_register_or_value(struct cpu *cpu, uint8_t *dest)
   if ((*dest & 0xF) == 0xF) cpu->regs.af |= 1 << 5; // half-carry flag
 }
 
+void push(struct cpu *cpu, struct memory *mem, uint16_t value)
+{
+  uint8_t lower_byte = value;
+  uint8_t upper_byte = value >> 8;
+  cpu->regs.sp -= 2;
+  memory_write(mem, cpu->regs.sp, lower_byte);
+  memory_write(mem, cpu->regs.sp + 1, upper_byte);
+}
+
+uint16_t pop(struct cpu *cpu, struct memory *mem)
+{
+  uint8_t lower_byte = memory_read(mem, cpu->regs.sp);
+  uint8_t upper_byte = memory_read(mem, cpu->regs.sp + 1);
+  cpu->regs.sp += 2;
+  return lower_byte | (upper_byte << 8);
+}
+
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
 {
   if (a == 0xCB)
@@ -314,6 +331,208 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
 
     cpu->regs.pc++;
     cpu->clock += 8;
+    return;
+  }
+
+  // push/pop
+  if (upper >= 0xC && (lower == 1 || lower == 5))
+  {
+    uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.af };
+    if (lower == 1) *dests[upper - 0xC] = pop(cpu, mem);
+    if (lower == 5) push(cpu, mem, *dests[upper - 0xC]);
+    cpu->clock += lower == 1 ? 12 : 16;
+    cpu->regs.pc++;
+    return;
+  }
+
+  // rst
+  if (upper >= 0xC && (lower == 7 || lower == 0xF))
+  {
+    uint16_t targets[] = { 0, 0x10, 0x20, 0x30 };
+    push(cpu, mem, cpu->regs.pc);
+    cpu->regs.pc = targets[upper - 0xC] + (lower == 0xF ? 8 : 0);
+    cpu->clock += 16;
+    return;
+  }
+
+  // jp nz a16, jp nc a16, jp z a16, jp c a16
+  if ((lower == 2 || lower == 0xA) && (upper == 0xC || upper == 0xD))
+  {
+    uint8_t flag_offset = upper == 0xC ? 7 : 4;
+    uint8_t flag = (cpu->regs.af & (1 << flag_offset)) >> flag_offset;
+    if (lower == 0xA) flag = flag == 0;
+    if (flag)
+    {
+      cpu->regs.pc += 3;
+      cpu->clock += 12;
+      return;
+    }
+
+    cpu->regs.pc = (c << 8) | b;
+    cpu->clock += 16;
+    return;
+  }
+
+  // ld (0xFF00+c) a, ld a (0xFF00+c)
+  if (lower == 2 && upper >= 0xE)
+  {
+    uint16_t address = 0xFF00 + (cpu->regs.bc & 0xF);
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    if (upper == 0xE) memory_write(mem, address, *a);
+    else *a = memory_read(mem, address);
+    cpu->clock += 8;
+    cpu->regs.pc++;
+    return;
+  }
+
+  // ret nz, ret nc, ret z, ret c
+  if ((lower == 0 || lower == 8) && (upper == 0xC || upper == 0xD))
+  {
+    uint8_t flag_offset = upper == 0xC ? 7 : 4;
+    uint8_t flag = (cpu->regs.af & (1 << flag_offset)) >> flag_offset;
+    if (lower == 8) flag = flag == 0;
+    if (flag)
+    {
+      cpu->regs.pc++;
+      cpu->clock += 8;
+      return;
+    }
+
+    cpu->regs.pc = pop(cpu, mem);
+    cpu->clock += 20;
+    return;
+  }
+
+  // ldh (0xFF00 + a8) a, ldh a (0xFF00 + a8)
+  if (lower == 0 && upper >= 0xE)
+  {
+    uint16_t address = 0xFF00 + b;
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    if (upper == 0xE) memory_write(mem, address, *a);
+    else *a = memory_read(mem, address);
+    cpu->regs.pc += 2;
+    cpu->clock += 12;
+    return;
+  }
+
+  // jr nz r8, jr nc r8, jr z r8, jr c r8
+  if ((lower == 0 || lower == 8) && (upper == 2 || upper == 3))
+  {
+    uint8_t flag_offset = upper == 2 ? 7 : 4;
+    uint8_t flag = (cpu->regs.af & (1 << flag_offset)) >> flag_offset;
+    if (lower == 8) flag = flag == 0;
+    if (flag)
+    {
+      cpu->regs.pc += 2;
+      cpu->clock += 8;
+      return;
+    }
+
+    cpu->regs.pc += b;
+    cpu->clock += 12;
+    return;
+  }
+
+  // jp a16
+  if (a == 0xC3)
+  {
+    cpu->regs.pc = (c << 8) | b;
+    cpu->clock += 16;
+    return;
+  }
+
+  // call nz a16, call nc a16, call z a16, call c a16
+  if ((lower == 4 || lower == 0xC) && upper >= 0xC)
+  {
+    uint8_t flag_offset = upper == 0xC ? 7 : 4;
+    uint8_t flag = (cpu->regs.af & (1 << flag_offset)) >> flag_offset;
+    if (lower == 0xC) flag = flag == 0;
+    if (flag)
+    {
+      cpu->regs.pc += 3;
+      cpu->clock += 12;
+      return;
+    }
+
+    push(cpu, mem, cpu->regs.pc);
+    cpu->regs.pc = b | (c << 8);
+    cpu->clock += 24;
+    return;
+  }
+
+  // add sp r8, ld hl sp+r8
+  if (lower == 8 && upper >= 0xE)
+  {
+    int8_t sb = (int8_t)b;
+    int32_t result = cpu->regs.sp + sb;
+    cpu->regs.af &= (uint8_t)(~0b1111) << 4;
+    // carry flag
+    if (((cpu->regs.sp ^ sb ^ (result & 0xFFFF)) & 0x100) == 0x100) cpu->regs.af |= 1 << 4;
+    // half-carry flag
+    if (((cpu->regs.sp ^ sb ^ (result & 0xFFFF)) & 0x10) == 0x10) cpu->regs.af |= 1 << 5;
+
+    if (upper == 0xE) cpu->regs.sp = (uint16_t)result;
+    else cpu->regs.hl = (uint16_t)result;
+
+    cpu->regs.pc += 2;
+    cpu->clock += upper == 0xE ? 16 : 12;
+    return;
+  }
+
+  // ret, reti
+  if (lower == 9 && (upper == 0xC || upper == 0xD))
+  {
+    if (upper == 0xD) cpu->interrupts_enabled = 1;
+    cpu->regs.pc = pop(cpu, mem);
+    cpu->clock += 16;
+    return;
+  }
+
+  // jp hl
+  if (a == 0xE9)
+  {
+    cpu->regs.pc = cpu->regs.hl;
+    cpu->clock += 4;
+    return;
+  }
+
+  // ld sp hl
+  if (a == 0xF9)
+  {
+    cpu->regs.sp = cpu->regs.hl;
+    cpu->regs.pc++;
+    cpu->clock += 8;
+    return;
+  }
+
+  // ld (a16) a, ld a (a16)
+  if (lower == 0xA && upper >= 0xE)
+  {
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    uint16_t address = (c << 8) | b;
+    if (upper == 0xE) memory_write(mem, address, *a);
+    else *a = memory_read(mem, address);
+    cpu->regs.pc += 3;
+    cpu->clock += 16;
+    return;
+  }
+
+  // jr r8
+  if (a == 0x18)
+  {
+    cpu->regs.pc += b;
+    cpu->clock += 12;
+    return;
+  }
+
+  // ld (a16) sp
+  if (a == 8)
+  {
+    uint16_t address = (c << 8) | b;
+    memory_write(mem, address, cpu->regs.sp & 0xFF);
+    memory_write(mem, address + 1, cpu->regs.sp >> 8);
+    cpu->regs.pc += 3;
+    cpu->clock += 20;
     return;
   }
 }

@@ -19,6 +19,7 @@ struct cpu
   struct cpu_registers regs;
   uint32_t clock;
   uint8_t interrupts_enabled;
+  uint8_t halted;
 };
 
 void cpu_init(struct cpu *cpu);
