@@ -535,4 +535,14 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     cpu->clock += 20;
     return;
   }
+
+  // call a16
+  if (a == 0xCD)
+  {
+    uint16_t address = (c << 8) | b;
+    push(cpu, mem, cpu->regs.pc);
+    cpu->regs.pc = address;
+    cpu->clock += 24;
+    return;
+  }
 }

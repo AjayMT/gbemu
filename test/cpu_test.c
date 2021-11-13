@@ -1564,3 +1564,20 @@ UTEST(cpu, ld_a16_sp)
   ASSERT_EQ((uint32_t)20, cpu.clock);
   ASSERT_EQ(3, cpu.regs.pc);
 }
+
+UTEST(cpu, call_a16)
+{
+  struct memory mem;
+  memory_init(&mem, NULL, NULL);
+  struct cpu cpu;
+  cpu_init(&cpu);
+
+  cpu.regs.pc = 0xC0FE;
+  cpu.regs.sp = 0xD000;
+  cpu_run_instruction(&cpu, &mem, 0xCD, 0xAD, 0xDE);
+  ASSERT_EQ(0xDEAD, cpu.regs.pc);
+  ASSERT_EQ(0xFE, mem.memory[cpu.regs.sp]);
+  ASSERT_EQ(0xC0, mem.memory[cpu.regs.sp + 1]);
+  ASSERT_EQ(0xD000 - 2, cpu.regs.sp);
+  ASSERT_EQ((uint32_t)24, cpu.clock);
+}
