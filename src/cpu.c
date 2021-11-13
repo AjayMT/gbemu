@@ -16,14 +16,6 @@ void debug_dump_regs(struct cpu cpu)
     );
 }
 
-void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b)
-{
-  (void)cpu;
-  (void)mem;
-  (void)a;
-  (void)b;
-}
-
 void add_to_register_a(struct cpu *cpu, uint8_t value, uint8_t secondary_function)
 {
   uint8_t carry = 0;
@@ -92,7 +84,7 @@ void or_or_cp_register_a(struct cpu *cpu, uint8_t value, uint8_t cp)
 void inc_register_or_value(struct cpu *cpu, uint8_t *dest)
 {
   (*dest)++;
-  cpu->regs.af &= (uint8_t)(~0b1110) << 4;
+  cpu->regs.af &= ~0b11100000;
   if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
   if ((*dest & 0xF) == 0) cpu->regs.af |= 1 << 5; // half-carry flag
 }
@@ -100,7 +92,7 @@ void inc_register_or_value(struct cpu *cpu, uint8_t *dest)
 void dec_register_or_value(struct cpu *cpu, uint8_t *dest)
 {
   (*dest)--;
-  cpu->regs.af &= (uint8_t)(~0b1110) << 4;
+  cpu->regs.af &= ~0b11100000;
   cpu->regs.af |= 1 << 6;
   if (*dest == 0) cpu->regs.af |= 1 << 7; // zero flag
   if ((*dest & 0xF) == 0xF) cpu->regs.af |= 1 << 5; // half-carry flag
@@ -123,10 +115,69 @@ uint16_t pop(struct cpu *cpu, struct memory *mem)
   return lower_byte | (upper_byte << 8);
 }
 
+void rotate_left(struct cpu *cpu, uint8_t *value)
+{
+  uint8_t result = (*value << 1) | ((*value >> 7) & 1);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if ((*value >> 7) & 1) cpu->regs.af |= 1 << 4;
+  *value = result;
+}
+
+void rotate_left_through_carry(struct cpu *cpu, uint8_t *value)
+{
+  uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+  uint8_t result = (*value << 1) | carry;
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if ((*value >> 7) & 1) cpu->regs.af |= 1 << 4;
+  *value = result;
+}
+
+void rotate_right(struct cpu *cpu, uint8_t *value)
+{
+  uint8_t result = (*value >> 1) | ((*value & 1) << 7);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if (*value & 1) cpu->regs.af |= 1 << 4;
+  *value = result;
+}
+
+void rotate_right_through_carry(struct cpu *cpu, uint8_t *value)
+{
+  uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+  uint8_t result = (*value >> 1) | (carry << 7);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if (*value & 1) cpu->regs.af |= 1 << 4;
+  *value = result;
+}
+
+void rotate_shift_swap(
+  struct cpu *cpu, uint8_t first_function, uint8_t second_function, uint8_t *value
+  )
+{
+  void (*functions[])(struct cpu *, uint8_t *) = {
+    rotate_left, rotate_right,
+    rotate_left_through_carry, rotate_right_through_carry
+  };
+  functions[(first_function << 1) | second_function](cpu, value);
+}
+
+void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b)
+{
+  (void)cpu;
+  (void)mem;
+  (void)a;
+  (void)b;
+}
+
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
 {
   if (a == 0xCB)
   {
+    cpu->regs.pc++;
+    cpu->clock += 4;
     run_prefix_cb_instruction(cpu, mem, a, b);
     return;
   }
@@ -208,7 +259,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 
-  // add/adc/sub/sbc/and/xor/or/cp
+  // add, adc, sub, sbc, and, xor, or, cp
   void (*arithmetic_logic_operations[])(struct cpu *, uint8_t, uint8_t) = {
     add_to_register_a,
     sub_from_register_a,
@@ -323,7 +374,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint32_t orig = cpu->regs.hl;
     cpu->regs.hl += sources[upper];
 
-    cpu->regs.af &= (uint8_t)(~0b111) << 4;
+    cpu->regs.af &= ~0b1110000;
     if (orig + sources[upper] > 0xFFFF) cpu->regs.af |= 1 << 4; // carry flag
     // checking if there was a half-carry from bit 11 to bit 12
     if (((orig & 0xFFFF) ^ sources[upper] ^ ((orig + sources[upper]) & 0xFFFF)) & 0x1000)
@@ -465,7 +516,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     int8_t sb = (int8_t)b;
     int32_t result = cpu->regs.sp + sb;
-    cpu->regs.af &= (uint8_t)(~0b1111) << 4;
+    cpu->regs.af &= ~0b11110000;
     // carry flag
     if (((cpu->regs.sp ^ sb ^ (result & 0xFFFF)) & 0x100) == 0x100) cpu->regs.af |= 1 << 4;
     // half-carry flag
@@ -543,6 +594,90 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     push(cpu, mem, cpu->regs.pc);
     cpu->regs.pc = address;
     cpu->clock += 24;
+    return;
+  }
+
+  // halt, di, ei
+  if (a == 0x76 || a == 0xF3 || a == 0xFB)
+  {
+    if (a == 0x76) cpu->halted = 1;
+    else if (a == 0xF3) cpu->interrupts_enabled = 0;
+    else cpu->interrupts_enabled = 1;
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // rlca, rla, rrca, rra
+  if (upper <= 1 && (lower == 7 || lower == 0xF))
+  {
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    rotate_shift_swap(cpu, upper, lower == 0xF, a);
+    cpu->regs.af &= ~0b10000000;
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // scf, ccf
+  if (upper == 3 && (lower == 7 || lower == 0xF))
+  {
+    uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+    if (lower == 7) carry = 1;
+    else carry = carry == 0;
+    cpu->regs.af &= ~0b1110000;
+    if (carry) cpu->regs.af |= 1 << 4;
+    else cpu->regs.af &= ~(1 << 4);
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // cpl
+  if (a == 0x2F)
+  {
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    *a = ~(*a);
+    cpu->regs.af |= 0b110 << 4;
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // daa
+  if (a == 0x27)
+  {
+    // behavior: https://ehaskins.com/2018-01-30%20Z80%20DAA/
+    uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
+    int32_t result = *a;
+    uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+    uint8_t half_carry = (cpu->regs.af & (1 << 5)) >> 5;
+    uint8_t subtract = (cpu->regs.af & (1 << 6)) >> 6;
+    if (subtract)
+    {
+      if (half_carry) result -= 6;
+      if (carry) result -= 0x60;
+    }
+    else
+    {
+      if (half_carry || (result & 0xF) > 9) result += 6;
+      if (carry || result > 0x9F) result += 0x60;
+    }
+
+    *a = (uint8_t)result;
+    cpu->regs.af &= ~(1 << 5);
+    if (result > 0xFF) cpu->regs.af |= 1 << 4;
+    if (*a == 0) cpu->regs.af |= 1 << 7;
+
+    cpu->regs.pc++;
+    cpu->clock += 4;
+    return;
+  }
+
+  // stop
+  if (a == 0x10)
+  {
+    printf("STOP instruction not implemented\n");
     return;
   }
 }
