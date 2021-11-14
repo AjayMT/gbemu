@@ -115,61 +115,154 @@ uint16_t pop(struct cpu *cpu, struct memory *mem)
   return lower_byte | (upper_byte << 8);
 }
 
-void rotate_left(struct cpu *cpu, uint8_t *value)
+uint8_t rotate_left(struct cpu *cpu, uint8_t value)
 {
-  uint8_t result = (*value << 1) | ((*value >> 7) & 1);
+  uint8_t result = (value << 1) | ((value >> 7) & 1);
   cpu->regs.af &= ~0b11110000;
   if (result == 0) cpu->regs.af |= 1 << 7;
-  if ((*value >> 7) & 1) cpu->regs.af |= 1 << 4;
-  *value = result;
+  if ((value >> 7) & 1) cpu->regs.af |= 1 << 4;
+  return result;
 }
 
-void rotate_left_through_carry(struct cpu *cpu, uint8_t *value)
-{
-  uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
-  uint8_t result = (*value << 1) | carry;
-  cpu->regs.af &= ~0b11110000;
-  if (result == 0) cpu->regs.af |= 1 << 7;
-  if ((*value >> 7) & 1) cpu->regs.af |= 1 << 4;
-  *value = result;
-}
-
-void rotate_right(struct cpu *cpu, uint8_t *value)
-{
-  uint8_t result = (*value >> 1) | ((*value & 1) << 7);
-  cpu->regs.af &= ~0b11110000;
-  if (result == 0) cpu->regs.af |= 1 << 7;
-  if (*value & 1) cpu->regs.af |= 1 << 4;
-  *value = result;
-}
-
-void rotate_right_through_carry(struct cpu *cpu, uint8_t *value)
+uint8_t rotate_left_through_carry(struct cpu *cpu, uint8_t value)
 {
   uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
-  uint8_t result = (*value >> 1) | (carry << 7);
+  uint8_t result = (value << 1) | carry;
   cpu->regs.af &= ~0b11110000;
   if (result == 0) cpu->regs.af |= 1 << 7;
-  if (*value & 1) cpu->regs.af |= 1 << 4;
-  *value = result;
+  if ((value >> 7) & 1) cpu->regs.af |= 1 << 4;
+  return result;
 }
 
-void rotate_shift_swap(
-  struct cpu *cpu, uint8_t first_function, uint8_t second_function, uint8_t *value
+uint8_t rotate_right(struct cpu *cpu, uint8_t value)
+{
+  uint8_t result = (value >> 1) | ((value & 1) << 7);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if (value & 1) cpu->regs.af |= 1 << 4;
+  return result;
+}
+
+uint8_t rotate_right_through_carry(struct cpu *cpu, uint8_t value)
+{
+  uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+  uint8_t result = (value >> 1) | (carry << 7);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  if (value & 1) cpu->regs.af |= 1 << 4;
+  return result;
+}
+
+uint8_t shift_left_arithmetic(struct cpu *cpu, uint8_t value)
+{
+  uint8_t result = value << 1;
+  cpu->regs.af &= ~0b11110000;
+  if (value & (1 << 7)) cpu->regs.af |= 1 << 4;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  return result;
+}
+
+uint8_t shift_right_arithmetic(struct cpu *cpu, uint8_t value)
+{
+  uint8_t result = (value >> 1) | (value & (1 << 7));
+  cpu->regs.af &= ~0b11110000;
+  if (value & 1) cpu->regs.af |= 1 << 4;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  return result;
+}
+
+uint8_t swap(struct cpu *cpu, uint8_t value)
+{
+  uint8_t result = ((value & 0xF) << 4) | ((value & 0xF0) >> 4);
+  cpu->regs.af &= ~0b11110000;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  return result;
+}
+
+uint8_t shift_right_logical(struct cpu *cpu, uint8_t value)
+{
+  uint8_t result = value >> 1;
+  cpu->regs.af &= ~0b11110000;
+  if (value & 1) cpu->regs.af |= 1 << 4;
+  if (result == 0) cpu->regs.af |= 1 << 7;
+  return result;
+}
+
+uint8_t rotate_shift_swap(
+  struct cpu *cpu, uint8_t first_function, uint8_t second_function, uint8_t value
   )
 {
-  void (*functions[])(struct cpu *, uint8_t *) = {
+  uint8_t (*functions[])(struct cpu *, uint8_t) = {
     rotate_left, rotate_right,
-    rotate_left_through_carry, rotate_right_through_carry
+    rotate_left_through_carry, rotate_right_through_carry,
+    shift_left_arithmetic, shift_right_arithmetic,
+    swap, shift_right_logical
   };
-  functions[(first_function << 1) | second_function](cpu, value);
+  return functions[(first_function << 1) | second_function](cpu, value);
 }
 
-void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b)
+uint8_t bit(struct cpu *cpu, uint8_t even, uint8_t odd, uint8_t value)
+{
+  uint8_t bit = (even * 2) | odd;
+  cpu->regs.af &= ~(0b11100000);
+  cpu->regs.af |= 1 << 5;
+  if (((value >> bit) & 1) == 0) cpu->regs.af |= 1 << 7;
+  return value;
+}
+
+uint8_t res(struct cpu *cpu, uint8_t even, uint8_t odd, uint8_t value)
 {
   (void)cpu;
-  (void)mem;
-  (void)a;
-  (void)b;
+  uint8_t bit = (even * 2) | odd;
+  return value & (~(1 << bit));
+}
+
+uint8_t set(struct cpu *cpu, uint8_t even, uint8_t odd, uint8_t value)
+{
+  (void)cpu;
+  uint8_t bit = (even * 2) | odd;
+  return value | (1 << bit);
+}
+
+void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t opcode)
+{
+  uint8_t upper = (opcode & 0xF0) >> 4;
+  uint8_t lower = opcode & 0xF;
+
+  uint8_t *dests[] = {
+    ((uint8_t *)&cpu->regs.bc) + 1, // b
+    (uint8_t *)&cpu->regs.bc,       // c
+    ((uint8_t *)&cpu->regs.de) + 1, // d
+    (uint8_t *)&cpu->regs.de,       // e
+    ((uint8_t *)&cpu->regs.hl) + 1, // h
+    (uint8_t *)&cpu->regs.hl,       // l
+    0,                              // <none>
+    ((uint8_t *)&cpu->regs.af) + 1, // a
+  };
+
+  uint8_t (*functions[])(struct cpu *, uint8_t, uint8_t, uint8_t) = {
+    rotate_shift_swap, bit, res, set
+  };
+
+  uint8_t value = 0;
+  uint8_t mem_op = dests[(lower & 7)] == 0;
+  if (mem_op) value = memory_read(mem, cpu->regs.hl);
+  else value = *dests[lower & 7];
+
+  value = functions[upper >> 2](cpu, upper & 3, lower >> 3, value);
+
+  if ((upper >> 2) == 1) // bit
+  {
+    cpu->regs.pc++;
+    cpu->clock += mem_op ? 8 : 4;
+    return;
+  }
+
+  if (mem_op) memory_write(mem, cpu->regs.hl, value);
+  else *dests[lower & 7] = value;
+
+  cpu->regs.pc++;
+  cpu->clock += mem_op ? 12 : 4;
 }
 
 void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t b, uint8_t c)
@@ -178,7 +271,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     cpu->regs.pc++;
     cpu->clock += 4;
-    run_prefix_cb_instruction(cpu, mem, a, b);
+    run_prefix_cb_instruction(cpu, mem, b);
     return;
   }
 
@@ -612,7 +705,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (upper <= 1 && (lower == 7 || lower == 0xF))
   {
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
-    rotate_shift_swap(cpu, upper, lower == 0xF, a);
+    *a = rotate_shift_swap(cpu, upper, lower == 0xF, *a);
     cpu->regs.af &= ~0b10000000;
     cpu->regs.pc++;
     cpu->clock += 4;
