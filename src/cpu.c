@@ -774,3 +774,54 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     return;
   }
 }
+
+void cpu_handle_interrupts(struct cpu *cpu, struct memory *mem)
+{
+  uint16_t interrupt_vector = 0;
+  uint8_t interrupt_flag = 0;
+
+  uint8_t vblank_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_VBLANK)
+    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_VBLANK);
+  uint8_t lcd_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_LCD)
+    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_LCD);
+  uint8_t timer_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_TIMER)
+    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_TIMER);
+  uint8_t serial_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_SERIAL)
+    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_SERIAL);
+  uint8_t input_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_INPUT)
+    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_INPUT);
+
+  if (vblank_interrupt)
+  {
+    interrupt_vector = ADDR_VECTOR_VBLANK;
+    interrupt_flag = FLAG_INTERRUPT_VBLANK;
+  }
+  else if (lcd_interrupt)
+  {
+    interrupt_vector = ADDR_VECTOR_LCD;
+    interrupt_flag = FLAG_INTERRUPT_LCD;
+  }
+  else if (timer_interrupt)
+  {
+    interrupt_vector = ADDR_VECTOR_TIMER;
+    interrupt_flag = FLAG_INTERRUPT_TIMER;
+  }
+  else if (serial_interrupt)
+  {
+    interrupt_vector = ADDR_VECTOR_SERIAL;
+    interrupt_flag = FLAG_INTERRUPT_SERIAL;
+  }
+  else if (input_interrupt)
+  {
+    interrupt_vector = ADDR_VECTOR_INPUT;
+    interrupt_flag = FLAG_INTERRUPT_INPUT;
+  }
+
+  if (interrupt_vector == 0 || cpu->interrupts_enabled == 0) return;
+
+  cpu->halted = 0;
+  cpu->interrupts_enabled = 0;
+  mem->memory[ADDR_REG_INTERRUPT_FLAG] &= ~interrupt_flag;
+  push(cpu, mem, cpu->regs.pc);
+  cpu->regs.pc = interrupt_vector;
+}
