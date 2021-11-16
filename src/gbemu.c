@@ -19,7 +19,6 @@ struct timer timer;
 
 void memory_write_handler(uint16_t addr, uint8_t value)
 {
-  printf("memory write %hx = %hx\n", addr, value);
   if (addr >= ADDR_BG_MAP_0_START && addr < ADDR_BG_MAP_1_START)
     graphics_update_background_map(&graphics, &mem, ADDR_BG_MAP_0_START);
   if (addr >= ADDR_BG_MAP_1_START && addr < ADDR_BG_MAP_1_END)
@@ -68,6 +67,7 @@ void boot()
   memory_write(&mem, 0xFF43, 0x00);  // SCX
   memory_write(&mem, 0xFF44, 0x00);  // LY
   memory_write(&mem, 0xFF45, 0x00);  // LYC
+  memory_write(&mem, 0xFF46, 0xFF);  // DMA
   memory_write(&mem, 0xFF47, 0xFC);  // BGP
   memory_write(&mem, 0xFF48, 0xFF);  // OBP0
   memory_write(&mem, 0xFF49, 0xFF);  // OBP1
@@ -79,23 +79,27 @@ void boot()
 
 void cycle()
 {
-  uint32_t cycles = 0;
-  cpu_handle_interrupts(&cpu, &mem);
-  if (!cpu.halted)
+  int32_t remaining_cycles = 70368;
+  while (remaining_cycles > 0)
   {
-    uint8_t a = memory_read(&mem, cpu.regs.pc);
-    uint8_t b = memory_read(&mem, cpu.regs.pc + 1);
-    uint8_t c = memory_read(&mem, cpu.regs.pc + 2);
-    uint32_t clock_initial = cpu.clock;
-    cpu_run_instruction(&cpu, &mem, a, b, c);
-    cycles = cpu.clock - clock_initial;
+    uint32_t cycles = 0;
+    cpu_handle_interrupts(&cpu, &mem);
+    if (!cpu.halted)
+    {
+      uint8_t a = memory_read(&mem, cpu.regs.pc);
+      uint8_t b = memory_read(&mem, cpu.regs.pc + 1);
+      uint8_t c = memory_read(&mem, cpu.regs.pc + 2);
+      uint32_t clock_initial = cpu.clock;
+      cpu_run_instruction(&cpu, &mem, a, b, c);
+      cycles = cpu.clock - clock_initial;
+    }
+    else cycles = 4;
+
+    ppu_cycle(&ppu, &mem, &graphics, cycles);
+    timer_cycle(&timer, &mem, cycles);
+
+    remaining_cycles -= cycles;
   }
-  else cycles = 4;
-
-  printf("cpu pc: %hx\n", cpu.regs.pc);
-
-  ppu_cycle(&ppu, &mem, &graphics, cycles);
-  timer_cycle(&timer, &mem, cycles);
 }
 
 int main(int argc, char *argv[])
@@ -119,7 +123,7 @@ int main(int argc, char *argv[])
   ppu_init(&ppu);
   timer_init(&timer);
 
-  boot();
+  //boot();
 
   sfRenderWindow *window = sfRenderWindow_create(
     (sfVideoMode) { PIXEL_COLUMNS * PIXEL_SIZE, PIXEL_ROWS * PIXEL_SIZE, 32 },
@@ -152,7 +156,7 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < PIXEL_COLUMNS * PIXEL_ROWS; ++i)
     {
       sfColor pixel_color;
-      switch (ppu.back_buffer[i])
+      switch (ppu.front_buffer[i])
       {
       case LIGHTER_GREEN:
         pixel_color = sfColor_fromRGB(155, 188, 15);

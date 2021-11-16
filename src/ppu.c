@@ -66,8 +66,6 @@ void draw_sprites(struct ppu *ppu, struct memory *mem, struct graphics *graphics
     }
   }
 
-  printf("drawing sprites, count %u\n", count);
-
   qsort(sprites, 40, sizeof(struct graphics_sprite), compare_sprites);
   uint8_t start_idx = count < 10 ? count : 10;
   for (int32_t i = start_idx - 1; i >= 0; --i)
@@ -84,7 +82,7 @@ void draw_sprites(struct ppu *ppu, struct memory *mem, struct graphics *graphics
     uint8_t tile_y = lcd_y - (sprite.y - tile_y_correction);
     if (sprite.flip_y) tile_y = abs(lcd_y - (sprite.y - tile_y_correction + 7));
 
-    for (uint32_t j = 0; j < 8; ++j)
+    for (int32_t j = 0; j < 8; ++j)
     {
       uint8_t tile_x = sprite.flip_x ? (7 - j) : j;
       uint8_t pixel = tile[tile_y * 8 + tile_x];
@@ -92,18 +90,82 @@ void draw_sprites(struct ppu *ppu, struct memory *mem, struct graphics *graphics
       if (sprite.palette_1) color = graphics->obj_1_palette[pixel];
 
       int16_t buf_x = sprite.x - 8 + j;
-      // TODO bg prio stuff
-      printf("pixel %d %d color %d\n", buf_x, lcd_y, color);
-      ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
+      if (
+        !(sprite.bg_prio && ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] != LIGHTER_GREEN)
+        && color != TRANSPARENT && buf_x < 160 && buf_x >= 0
+        )
+        ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
     }
   }
 }
 
 void draw_background(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
 {
-  (void)ppu;
-  (void)mem;
-  (void)graphics;
+  if (!(memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_BG_ON)) return;
+
+  uint8_t lcd_y = memory_read_ppu(mem, ADDR_REG_LCD_Y, 1);
+  uint8_t scroll_y = memory_read_ppu(mem, ADDR_REG_SCROLL_Y, 1);
+  uint8_t scroll_x = memory_read_ppu(mem, ADDR_REG_SCROLL_X, 1);
+
+  uint8_t start_background_tile_y = (scroll_y + lcd_y) / 8;
+  if (start_background_tile_y >= 32) start_background_tile_y %= 32;
+  uint8_t background_tile_y_offset = (scroll_y + lcd_y) % 8;
+
+  uint8_t start_background_tile_x = scroll_x / 8;
+  uint8_t background_tile_x_offset = scroll_x % 8;
+
+  uint8_t *bg_map = graphics_get_background_map(graphics, mem, FLAG_LCD_CONTROL_BG_MAP);
+  for (int32_t i = 0; i < 21; ++i)
+  {
+    uint8_t tile_idx_x = start_background_tile_x + i;
+    if (tile_idx_x >= 32) tile_idx_x %= 32;
+    uint8_t *tile = graphics_get_background_tile(
+      graphics, mem, bg_map[start_background_tile_y * 32 + tile_idx_x]
+      );
+
+    for (int32_t j = 0; j < 8; ++j)
+    {
+      if (i == 0 && j < background_tile_x_offset) continue;
+      if (i == 20 && j >= background_tile_x_offset) continue;
+
+      uint8_t pixel = tile[background_tile_y_offset * 8 + j];
+      enum graphics_color color = graphics->bw_palette[pixel];
+      int32_t buf_x = (i * 8) + j - background_tile_x_offset;
+      ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
+    }
+  }
+}
+
+void draw_window(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
+{
+  if (!(memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_WINDOW_ON)) return;
+
+  uint8_t lcd_y = memory_read_ppu(mem, ADDR_REG_LCD_Y, 1);
+  int16_t window_y = memory_read_ppu(mem, ADDR_REG_WINDOW_Y, 1);
+  int16_t window_x = memory_read_ppu(mem, ADDR_REG_WINDOW_X, 1);
+
+  if (lcd_y < window_y) return;
+
+  uint8_t stop_off_screen = 0;
+  uint8_t *window_map = graphics_get_background_map(graphics, mem, FLAG_LCD_CONTROL_WINDOW_MAP);
+  for (int32_t tile_x = 0; tile_x < 32; ++tile_x)
+  {
+    uint8_t tile_idx = window_map[((lcd_y - window_y) / 8) * 32 + tile_x];
+    uint8_t *tile = graphics->tile_0[(int8_t)tile_idx + 128];
+    for (int32_t j = 0; j < 8; ++j)
+    {
+      if ((tile_x * 8) + j + window_x > 159)
+      {
+        stop_off_screen = 1;
+        break;
+      }
+
+      uint8_t pixel = tile[((lcd_y - window_y) % 8) * 8 + j];
+      enum graphics_color color = graphics->bw_palette[pixel];
+      ppu->back_buffer[lcd_y * PIXEL_COLUMNS + (tile_x * 8) + j + window_x] = (uint8_t)color;
+    }
+    if (stop_off_screen) break;
+  }
 }
 
 void hblank(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
@@ -114,6 +176,7 @@ void hblank(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
     mem->memory[ADDR_REG_INTERRUPT_FLAG] |= FLAG_INTERRUPT_LCD;
 
   draw_background(ppu, mem, graphics);
+  draw_window(ppu, mem, graphics);
   draw_sprites(ppu, mem, graphics);
 
   if (memory_read_ppu(mem, ADDR_REG_LCD_Y, 1) == 143)
@@ -127,7 +190,6 @@ void hblank(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
 
 void vblank(struct ppu *ppu, struct memory *mem)
 {
-  printf("vblank\n");
   if (ppu->cycles < 456) return;
 
   if (memory_read_ppu(mem, ADDR_REG_LCD_Y, 1) == 144)

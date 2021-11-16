@@ -26,12 +26,16 @@
 #define ADDR_REG_TAC                0xFF07
 #define ADDR_REG_LCD_CONTROL        0xFF40
 #define ADDR_REG_LCD_STATUS         0xFF41
+#define ADDR_REG_SCROLL_Y           0xFF42
+#define ADDR_REG_SCROLL_X           0xFF43
 #define ADDR_REG_LCD_Y              0xFF44
 #define ADDR_REG_LCD_Y_COMPARE      0xFF45
 #define ADDR_REG_DMA                0xFF46
 #define ADDR_REG_BG_PALETTE         0xFF47
 #define ADDR_REG_OB_PALETTE_0       0xFF48
 #define ADDR_REG_OB_PALETTE_1       0xFF49
+#define ADDR_REG_WINDOW_Y           0xFF4A
+#define ADDR_REG_WINDOW_X           0xFF4B
 #define ADDR_REG_INTERRUPT_FLAG     0xFF0F
 #define ADDR_REG_INTERRUPT_ENABLED  0xFFFF
 
@@ -41,8 +45,10 @@
 #define FLAG_INTERRUPT_SERIAL               8
 #define FLAG_INTERRUPT_INPUT                16
 #define FLAG_LCD_CONTROL_LCD_ON             128
+#define FLAG_LCD_CONTROL_BG_ON              1
 #define FLAG_LCD_CONTROL_OBJ_ON             2
 #define FLAG_LCD_CONTROL_OBJ_SIZE           4
+#define FLAG_LCD_CONTROL_WINDOW_ON          32
 #define FLAG_LCD_CONTROL_WINDOW_MAP         64
 #define FLAG_LCD_CONTROL_BG_MAP             8
 #define FLAG_LCD_CONTROL_BG_DATA            16

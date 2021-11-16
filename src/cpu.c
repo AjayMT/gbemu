@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "cpu.h"
@@ -112,7 +113,7 @@ uint16_t pop(struct cpu *cpu, struct memory *mem)
   uint8_t lower_byte = memory_read(mem, cpu->regs.sp);
   uint8_t upper_byte = memory_read(mem, cpu->regs.sp + 1);
   cpu->regs.sp += 2;
-  return lower_byte | (upper_byte << 8);
+  return (uint16_t)lower_byte | (uint16_t)(upper_byte << 8);
 }
 
 uint8_t rotate_left(struct cpu *cpu, uint8_t value)
@@ -482,7 +483,12 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (upper >= 0xC && (lower == 1 || lower == 5))
   {
     uint16_t *dests[] = { &cpu->regs.bc, &cpu->regs.de, &cpu->regs.hl, &cpu->regs.af };
-    if (lower == 1) *dests[upper - 0xC] = pop(cpu, mem);
+    if (lower == 1)
+    {
+      if (upper - 0xC == 3) // pop AF is special
+        *dests[upper - 0xC] = pop(cpu, mem) & 0xFFF0;
+      else *dests[upper - 0xC] = pop(cpu, mem);
+    }
     if (lower == 5) push(cpu, mem, *dests[upper - 0xC]);
     cpu->clock += lower == 1 ? 12 : 16;
     cpu->regs.pc++;
@@ -493,7 +499,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (upper >= 0xC && (lower == 7 || lower == 0xF))
   {
     uint16_t targets[] = { 0, 0x10, 0x20, 0x30 };
-    push(cpu, mem, cpu->regs.pc);
+    push(cpu, mem, cpu->regs.pc + 1);
     cpu->regs.pc = targets[upper - 0xC] + (lower == 0xF ? 8 : 0);
     cpu->clock += 16;
     return;
@@ -511,7 +517,6 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
       cpu->clock += 12;
       return;
     }
-
     cpu->regs.pc = (c << 8) | b;
     cpu->clock += 16;
     return;
@@ -572,7 +577,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
       return;
     }
 
-    cpu->regs.pc += b;
+    cpu->regs.pc += (int8_t)b + 2;
     cpu->clock += 12;
     return;
   }
@@ -598,7 +603,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
       return;
     }
 
-    push(cpu, mem, cpu->regs.pc);
+    push(cpu, mem, cpu->regs.pc + 3);
     cpu->regs.pc = b | (c << 8);
     cpu->clock += 24;
     return;
@@ -664,7 +669,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   // jr r8
   if (a == 0x18)
   {
-    cpu->regs.pc += b;
+    cpu->regs.pc += (int8_t)b + 2;
     cpu->clock += 12;
     return;
   }
@@ -684,7 +689,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (a == 0xCD)
   {
     uint16_t address = (c << 8) | b;
-    push(cpu, mem, cpu->regs.pc);
+    push(cpu, mem, cpu->regs.pc + 3);
     cpu->regs.pc = address;
     cpu->clock += 24;
     return;
@@ -742,25 +747,27 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     // behavior: https://ehaskins.com/2018-01-30%20Z80%20DAA/
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
-    int32_t result = *a;
     uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
     uint8_t half_carry = (cpu->regs.af & (1 << 5)) >> 5;
     uint8_t subtract = (cpu->regs.af & (1 << 6)) >> 6;
-    if (subtract)
-    {
-      if (half_carry) result -= 6;
-      if (carry) result -= 0x60;
-    }
-    else
-    {
-      if (half_carry || (result & 0xF) > 9) result += 6;
-      if (carry || result > 0x9F) result += 0x60;
-    }
+    uint16_t correction = 0;
 
-    *a = (uint8_t)result;
+    if (half_carry || (!subtract && ((*a & 0xF) > 9)))
+      correction |= 6;
+
+    if (carry || (!subtract && (*a > 0x99)))
+      correction |= 0x60;
+
+    uint8_t result;
+    if (subtract)
+      result = (uint8_t)(*a - correction);
+    else
+      result = (uint8_t)(*a + correction);
+
     cpu->regs.af &= ~(1 << 5);
-    if (result > 0xFF) cpu->regs.af |= 1 << 4;
-    if (*a == 0) cpu->regs.af |= 1 << 7;
+    if (((correction << 2) & 0x100) != 0) cpu->regs.af |= 1 << 4;
+    if (result == 0) cpu->regs.af |= 1 << 7;
+    *a = (uint8_t)result;
 
     cpu->regs.pc++;
     cpu->clock += 4;
@@ -771,6 +778,8 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (a == 0x10)
   {
     printf("STOP instruction not implemented\n");
+    debug_dump_regs(*cpu);
+    while (1);
     return;
   }
 }
