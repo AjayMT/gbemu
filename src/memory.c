@@ -6,6 +6,7 @@
 void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler)
 {
   memset(mem, 0, sizeof(struct memory));
+  mem->ppu_mode = pmLCD_MODE_HBLANK;
   mem->cartridge_bank = 1;
   mem->cartridge_data = cartridge_data;
   mem->memory = calloc(0x10000, 1);
@@ -61,4 +62,18 @@ void memory_write(struct memory *mem, uint16_t addr, uint8_t value)
   else mem->memory[addr] = value;
 
   if (mem->write_handler) mem->write_handler(addr, value);
+}
+
+void memory_set_and_write_ppu_mode(struct memory *mem, enum ppu_mode mode)
+{
+  mem->ppu_mode = mode;
+  uint8_t value = (uint8_t)mode;
+  if ((value >> 1) & 1)
+    mem->memory[ADDR_REG_LCD_STATUS] |= FLAG_LCD_STATUS_MODE_HIGH;
+  else
+    mem->memory[ADDR_REG_LCD_STATUS] &= ~FLAG_LCD_STATUS_MODE_HIGH;
+  if (value & 1)
+    mem->memory[ADDR_REG_LCD_STATUS] |= FLAG_LCD_STATUS_MODE_LOW;
+  else
+    mem->memory[ADDR_REG_LCD_STATUS] &= ~FLAG_LCD_STATUS_MODE_LOW;
 }

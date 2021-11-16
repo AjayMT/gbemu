@@ -4,11 +4,6 @@
 #include <stdint.h>
 #include "memory.h"
 
-#define FLAG_LCD_CONTROL_OBJ_SIZE   4
-#define FLAG_LCD_CONTROL_WINDOW_MAP 64
-#define FLAG_LCD_CONTROL_BG_MAP     8
-#define FLAG_LCD_CONTROL_BG_DATA    16
-
 enum graphics_color
 {
   LIGHTER_GREEN = 0, LIGHT_GREEN = 1, DARK_GREEN = 2, DARKER_GREEN = 3, TRANSPARENT = 4

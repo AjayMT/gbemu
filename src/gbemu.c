@@ -7,18 +7,19 @@
 #include "cpu.h"
 #include "graphics.h"
 #include "ppu.h"
+#include "timer.h"
 
-#define PIXEL_COLUMNS 160
-#define PIXEL_ROWS    144
-#define PIXEL_SIZE    5
+#define PIXEL_SIZE 5
 
 struct memory mem;
 struct cpu cpu;
 struct graphics graphics;
 struct ppu ppu;
+struct timer timer;
 
 void memory_write_handler(uint16_t addr, uint8_t value)
 {
+  printf("memory write %hx = %hx\n", addr, value);
   if (addr >= ADDR_BG_MAP_0_START && addr < ADDR_BG_MAP_1_START)
     graphics_update_background_map(&graphics, &mem, ADDR_BG_MAP_0_START);
   if (addr >= ADDR_BG_MAP_1_START && addr < ADDR_BG_MAP_1_END)
@@ -78,14 +79,23 @@ void boot()
 
 void cycle()
 {
+  uint32_t cycles = 0;
   cpu_handle_interrupts(&cpu, &mem);
   if (!cpu.halted)
   {
     uint8_t a = memory_read(&mem, cpu.regs.pc);
     uint8_t b = memory_read(&mem, cpu.regs.pc + 1);
     uint8_t c = memory_read(&mem, cpu.regs.pc + 2);
+    uint32_t clock_initial = cpu.clock;
     cpu_run_instruction(&cpu, &mem, a, b, c);
+    cycles = cpu.clock - clock_initial;
   }
+  else cycles = 4;
+
+  printf("cpu pc: %hx\n", cpu.regs.pc);
+
+  ppu_cycle(&ppu, &mem, &graphics, cycles);
+  timer_cycle(&timer, &mem, cycles);
 }
 
 int main(int argc, char *argv[])
@@ -106,6 +116,8 @@ int main(int argc, char *argv[])
   memory_init(&mem, rom_data, memory_write_handler);
   cpu_init(&cpu);
   graphics_init(&graphics);
+  ppu_init(&ppu);
+  timer_init(&timer);
 
   boot();
 
@@ -139,6 +151,23 @@ int main(int argc, char *argv[])
     sfRenderWindow_clear(window, sfBlack);
     for (uint32_t i = 0; i < PIXEL_COLUMNS * PIXEL_ROWS; ++i)
     {
+      sfColor pixel_color;
+      switch (ppu.back_buffer[i])
+      {
+      case LIGHTER_GREEN:
+        pixel_color = sfColor_fromRGB(155, 188, 15);
+        break;
+      case LIGHT_GREEN:
+        pixel_color = sfColor_fromRGB(139, 172, 15);
+        break;
+      case DARK_GREEN:
+        pixel_color = sfColor_fromRGB(48, 98, 48);
+        break;
+      case DARKER_GREEN:
+        pixel_color = sfColor_fromRGB(15, 56, 15);
+        break;
+      }
+      sfRectangleShape_setFillColor(pixels[i], pixel_color);
       sfRenderWindow_drawRectangleShape(window, pixels[i], NULL);
     }
     sfRenderWindow_display(window);
