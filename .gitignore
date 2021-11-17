@@ -1,4 +1,5 @@
 /gbemu
 /gbemu_tests
 *.gb
+!test/*.gb
 *.dSYM
