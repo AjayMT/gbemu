@@ -59,7 +59,7 @@ void draw_bg_line(struct video *video, struct memory *mem, struct graphics *grap
       + tile_data_line_offset;
 
     uint8_t pixels_1 = memory_read_ppu(mem, tile_line_data_start_address, 1);
-    uint8_t pixels_2 = memory_read_ppu(mem, tile_line_data_start_address, 1);
+    uint8_t pixels_2 = memory_read_ppu(mem, tile_line_data_start_address + 1, 1);
 
     uint8_t pixel = get_pixel_from_line(pixels_1, pixels_2, tile_pixel_x);
     enum graphics_color color = graphics->bw_palette[pixel];

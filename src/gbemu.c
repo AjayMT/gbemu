@@ -122,6 +122,11 @@ int main(int argc, char *argv[])
     {
       if (event.type == sfEvtClosed)
         sfRenderWindow_close(window);
+
+      if (event.type == sfEvtKeyPressed || event.type == sfEvtKeyReleased)
+      {
+        // TODO input
+      }
     }
 
     cycle();

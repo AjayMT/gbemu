@@ -51,6 +51,10 @@ uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
     )
     return 0xFF;
   if (addr == 0xFF4D) return 0xFF;
+
+  // TODO remove this when inputs are implemented
+  if (addr == ADDR_REG_INPUT) return 0xFF;
+
   return mem->memory[addr];
 }
 
