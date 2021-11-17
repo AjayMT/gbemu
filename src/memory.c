@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "memory.h"
+#include "input.h"
 
 uint8_t boot_rom[] = {
   0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
@@ -23,7 +24,7 @@ uint8_t boot_rom[] = {
   0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50
 };
 
-void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler)
+void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler, struct input *input)
 {
   memset(mem, 0, sizeof(struct memory));
   mem->ppu_mode = pmLCD_MODE_HBLANK;
@@ -31,6 +32,7 @@ void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handl
   mem->cartridge_data = cartridge_data;
   mem->memory = calloc(0x10000, 1);
   mem->write_handler = handler;
+  mem->input = input;
 }
 
 uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
@@ -52,8 +54,7 @@ uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
     return 0xFF;
   if (addr == 0xFF4D) return 0xFF;
 
-  // TODO remove this when inputs are implemented
-  if (addr == ADDR_REG_INPUT) return 0xFF;
+  if (addr == ADDR_REG_INPUT) return input_read(mem->input);
 
   return mem->memory[addr];
 }
@@ -84,8 +85,7 @@ void memory_write(struct memory *mem, uint16_t addr, uint8_t value)
     mem->memory[addr] = 0;
   }
   else if (addr == ADDR_REG_DMA) dma_transfer(mem, value);
-  else if (addr == ADDR_REG_INPUT)
-    mem->memory[addr] = (value & 0x30) | (mem->memory[addr] & 0xCF);
+  else if (addr == ADDR_REG_INPUT) input_write(mem->input, value);
   else if (addr == ADDR_REG_LCD_STATUS)
     mem->memory[addr] = (value & 0x7C) | (mem->memory[addr] & 3);
   else if (addr >= ADDR_ROM_BANK_SWITCH_START && addr < ADDR_ROM_BANK_SWITCH_END)

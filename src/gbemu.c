@@ -8,6 +8,7 @@
 #include "graphics.h"
 #include "video.h"
 #include "timer.h"
+#include "input.h"
 
 #define PIXEL_SIZE 5
 
@@ -16,6 +17,7 @@ struct cpu cpu;
 struct graphics graphics;
 struct video video;
 struct timer timer;
+struct input input;
 sfRenderWindow *window;
 sfRectangleShape **pixels;
 
@@ -93,7 +95,8 @@ int main(int argc, char *argv[])
   uint8_t *rom_data = malloc(len);
   fread(rom_data, 1, len, rom);
 
-  memory_init(&mem, rom_data, memory_write_handler);
+  input_init(&input);
+  memory_init(&mem, rom_data, memory_write_handler, &input);
   cpu_init(&cpu);
   graphics_init(&graphics);
   video_init(&video, draw_callback);
@@ -125,7 +128,19 @@ int main(int argc, char *argv[])
 
       if (event.type == sfEvtKeyPressed || event.type == sfEvtKeyReleased)
       {
-        // TODO input
+        uint8_t value = event.type == sfEvtKeyPressed ? 1 : 0;
+        switch (event.key.code)
+        {
+        case sfKeyA: input.a = value; break;
+        case sfKeyS: input.b = value; break;
+        case sfKeyEnter: input.start = value; break;
+        case sfKeyQuote: input.select = value; break;
+        case sfKeyUp: input.up = value; break;
+        case sfKeyDown: input.down = value; break;
+        case sfKeyLeft: input.left = value; break;
+        case sfKeyRight: input.right = value; break;
+        default: ;
+        }
       }
     }
 

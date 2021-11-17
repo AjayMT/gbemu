@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "input.h"
 
 #define ADDR_VECTOR_VBLANK          0x40
 #define ADDR_VECTOR_LCD             0x48
@@ -78,9 +79,10 @@ struct memory
   uint8_t *memory;
   enum ppu_mode ppu_mode;
   memory_write_handler_t write_handler;
+  struct input *input;
 };
 
-void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler);
+void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler, struct input *input);
 uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu);
 uint8_t memory_read(struct memory *mem, uint16_t addr);
 void memory_write(struct memory *mem, uint16_t addr, uint8_t value);
