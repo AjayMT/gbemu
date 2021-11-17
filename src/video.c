@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "graphics.h"
 #include "video.h"
 
 void video_init(struct video *video, void (*callback)(uint8_t *))
@@ -19,7 +18,15 @@ uint8_t get_pixel_from_line(uint8_t byte1, uint8_t byte2, uint8_t pixel_idx)
   return (uint8_t)((value_1 << 1) | value_2);
 }
 
-void draw_bg_line(struct video *video, struct memory *mem, struct graphics *graphics, uint8_t lcd_y)
+void load_palette(enum video_color *palette, uint8_t value)
+{
+  palette[0] = value & 3;
+  palette[1] = (value & 0xC) >> 2;
+  palette[2] = (value & 0x30) >> 4;
+  palette[3] = (value & 0xC0) >> 6;
+}
+
+void draw_bg_line(struct video *video, struct memory *mem, uint8_t lcd_y)
 {
   uint8_t use_tile_set_zero = memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 4);
   uint8_t use_tile_map_zero = !(memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 3));
@@ -30,6 +37,10 @@ void draw_bg_line(struct video *video, struct memory *mem, struct graphics *grap
   uint32_t screen_y = lcd_y;
   uint32_t scroll_x = memory_read_ppu(mem, ADDR_REG_SCROLL_X, 1);
   uint32_t scroll_y = memory_read_ppu(mem, ADDR_REG_SCROLL_Y, 1);
+
+  enum video_color palette[4];
+  load_palette(palette, memory_read_ppu(mem, ADDR_REG_BG_PALETTE, 1));
+
   for (uint32_t screen_x = 0; screen_x < PIXEL_COLUMNS; ++screen_x)
   {
     uint32_t scrolled_x = screen_x + scroll_x;
@@ -62,14 +73,12 @@ void draw_bg_line(struct video *video, struct memory *mem, struct graphics *grap
     uint8_t pixels_2 = memory_read_ppu(mem, tile_line_data_start_address + 1, 1);
 
     uint8_t pixel = get_pixel_from_line(pixels_1, pixels_2, tile_pixel_x);
-    enum graphics_color color = graphics->bw_palette[pixel];
+    enum video_color color = palette[pixel];
     video->frame_buffer[screen_y * PIXEL_COLUMNS + screen_x] = (uint8_t)color;
   }
 }
 
-void draw_window_line(
-  struct video *video, struct memory *mem, struct graphics *graphics, uint8_t lcd_y
-  )
+void draw_window_line(struct video *video, struct memory *mem, uint8_t lcd_y)
 {
   uint8_t use_tile_set_zero = memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 4);
   uint8_t use_tile_map_zero = !(memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 6));
@@ -81,6 +90,9 @@ void draw_window_line(
   uint32_t scrolled_y = screen_y - memory_read_ppu(mem, ADDR_REG_WINDOW_Y, 1);
 
   if (scrolled_y >= PIXEL_ROWS) return;
+
+  enum video_color palette[4];
+  load_palette(palette, memory_read_ppu(mem, ADDR_REG_BG_PALETTE, 1));
 
   for (uint32_t screen_x = 0; screen_x < PIXEL_COLUMNS; ++screen_x)
   {
@@ -110,20 +122,18 @@ void draw_window_line(
     uint8_t pixels_2 = memory_read_ppu(mem, tile_line_data_start_address + 1, 1);
 
     uint8_t pixel = get_pixel_from_line(pixels_1, pixels_2, tile_pixel_x);
-    enum graphics_color color = graphics->bw_palette[pixel];
+    enum video_color color = palette[pixel];
     video->frame_buffer[screen_y * PIXEL_COLUMNS + screen_x] = color;
   }
 }
 
-void write_scanline(
-  struct video *video, struct memory *mem, struct graphics *graphics, uint8_t lcd_y
-  )
+void write_scanline(struct video *video, struct memory *mem, uint8_t lcd_y)
 {
   if (!(memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_LCD_ON)) return;
   if (memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_BG_ON)
-    draw_bg_line(video, mem, graphics, lcd_y);
+    draw_bg_line(video, mem, lcd_y);
   if (memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_WINDOW_ON)
-    draw_window_line(video, mem, graphics, lcd_y);
+    draw_window_line(video, mem, lcd_y);
 }
 
 uint8_t *tile_create(struct memory *mem, uint16_t tile_address, uint32_t size_multiplier)
@@ -146,9 +156,7 @@ uint8_t *tile_create(struct memory *mem, uint16_t tile_address, uint32_t size_mu
   return buffer;
 }
 
-void draw_sprite(
-  struct video *video, struct memory *mem, struct graphics *graphics, uint32_t sprite_n
-  )
+void draw_sprite(struct video *video, struct memory *mem, uint32_t sprite_n)
 {
   uint16_t offset_in_oam = sprite_n * 4;
   uint16_t oam_start = 0xFE00 + offset_in_oam;
@@ -171,7 +179,9 @@ void draw_sprite(
   uint8_t flip_y = sprite_attrs & (1 << 6);
   uint8_t obj_behind_bg = sprite_attrs & (1 << 7);
 
-  enum graphics_color *palette = use_palette_1 ? graphics->obj_1_palette : graphics->obj_0_palette;
+  enum video_color palette[4];
+  if (use_palette_1) load_palette(palette, memory_read_ppu(mem, ADDR_REG_OB_PALETTE_1, 1));
+  else load_palette(palette, memory_read_ppu(mem, ADDR_REG_OB_PALETTE_0, 1));
 
   uint32_t tile_offset = pattern_n * 16;
 
@@ -196,7 +206,7 @@ void draw_sprite(
       if (screen_x >= PIXEL_COLUMNS || screen_y >= PIXEL_ROWS) continue;
 
       uint8_t existing_pixel = video->frame_buffer[screen_y * PIXEL_COLUMNS + screen_x];
-      if (obj_behind_bg && existing_pixel != LIGHTER_GREEN) continue;
+      if (obj_behind_bg && existing_pixel != WHITE) continue;
 
       video->frame_buffer[screen_y * PIXEL_COLUMNS + screen_x] = palette[pixel];
     }
@@ -205,9 +215,7 @@ void draw_sprite(
   free(tile);
 }
 
-void video_cycle(
-  struct video *video, struct memory *mem, struct graphics *graphics, uint32_t cycles
-  )
+void video_cycle(struct video *video, struct memory *mem, uint32_t cycles)
 {
   video->cycles += cycles;
 
@@ -250,7 +258,7 @@ void video_cycle(
     video->cycles %= 204;
 
     uint8_t lcd_y = memory_read_ppu(mem, ADDR_REG_LCD_Y, 1);
-    write_scanline(video, mem, graphics, lcd_y);
+    write_scanline(video, mem, lcd_y);
     lcd_y++;
     mem->memory[ADDR_REG_LCD_Y] = lcd_y;
 
@@ -276,9 +284,9 @@ void video_cycle(
     {
       if (memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_OBJ_ON)
         for (uint32_t i = 0; i < 40; ++i)
-          draw_sprite(video, mem, graphics, i);
+          draw_sprite(video, mem, i);
       video->callback(video->frame_buffer);
-      memset(video->frame_buffer, LIGHTER_GREEN, PIXEL_COLUMNS * PIXEL_ROWS);
+      memset(video->frame_buffer, WHITE, PIXEL_COLUMNS * PIXEL_ROWS);
       mem->memory[ADDR_REG_LCD_Y] = 0;
       memory_set_and_write_ppu_mode(mem, pmLCD_MODE_OAM);
     }

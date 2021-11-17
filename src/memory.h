@@ -62,8 +62,6 @@
 #define FLAG_TIMER_CLOCK_MODE               3
 #define FLAG_TIMER_START                    4
 
-typedef void (*memory_write_handler_t)(uint16_t, uint8_t);
-
 enum ppu_mode
 {
   pmLCD_MODE_HBLANK = 0,
@@ -78,11 +76,10 @@ struct memory
   uint32_t cartridge_bank;
   uint8_t *memory;
   enum ppu_mode ppu_mode;
-  memory_write_handler_t write_handler;
   struct input *input;
 };
 
-void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler, struct input *input);
+void memory_init(struct memory *mem, uint8_t *cartridge_data, struct input *input);
 uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu);
 uint8_t memory_read(struct memory *mem, uint16_t addr);
 void memory_write(struct memory *mem, uint16_t addr, uint8_t value);

@@ -5,7 +5,6 @@
 #include <SFML/Graphics.h>
 #include "memory.h"
 #include "cpu.h"
-#include "graphics.h"
 #include "video.h"
 #include "timer.h"
 #include "input.h"
@@ -14,18 +13,11 @@
 
 struct memory mem;
 struct cpu cpu;
-struct graphics graphics;
 struct video video;
 struct timer timer;
 struct input input;
 sfRenderWindow *window;
 sfRectangleShape **pixels;
-
-void memory_write_handler(uint16_t addr, uint8_t value)
-{
-  if (addr == ADDR_REG_BG_PALETTE || addr == ADDR_REG_OB_PALETTE_0 || addr == ADDR_REG_OB_PALETTE_1)
-    graphics_update_color_palette(&graphics, addr, value);
-}
 
 void cycle()
 {
@@ -45,7 +37,7 @@ void cycle()
     }
     else cycles = 4;
 
-    video_cycle(&video, &mem, &graphics, cycles);
+    video_cycle(&video, &mem, cycles);
     timer_cycle(&timer, &mem, cycles);
 
     remaining_cycles -= cycles;
@@ -60,16 +52,16 @@ void draw_callback(uint8_t *frame_buffer)
     sfColor pixel_color;
     switch (frame_buffer[i])
     {
-    case LIGHTER_GREEN:
+    case WHITE:
       pixel_color = sfColor_fromRGB(155, 188, 15);
       break;
-    case LIGHT_GREEN:
+    case LIGHT_GRAY:
       pixel_color = sfColor_fromRGB(139, 172, 15);
       break;
-    case DARK_GREEN:
+    case DARK_GRAY:
       pixel_color = sfColor_fromRGB(48, 98, 48);
       break;
-    case DARKER_GREEN:
+    case BLACK:
       pixel_color = sfColor_fromRGB(15, 56, 15);
       break;
     }
@@ -96,9 +88,8 @@ int main(int argc, char *argv[])
   fread(rom_data, 1, len, rom);
 
   input_init(&input);
-  memory_init(&mem, rom_data, memory_write_handler, &input);
+  memory_init(&mem, rom_data, &input);
   cpu_init(&cpu);
-  graphics_init(&graphics);
   video_init(&video, draw_callback);
   timer_init(&timer);
 

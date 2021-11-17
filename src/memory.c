@@ -24,14 +24,13 @@ uint8_t boot_rom[] = {
   0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x00, 0x00, 0x3E, 0x01, 0xE0, 0x50
 };
 
-void memory_init(struct memory *mem, uint8_t *cartridge_data, memory_write_handler_t handler, struct input *input)
+void memory_init(struct memory *mem, uint8_t *cartridge_data, struct input *input)
 {
   memset(mem, 0, sizeof(struct memory));
   mem->ppu_mode = pmLCD_MODE_HBLANK;
   mem->cartridge_bank = 1;
   mem->cartridge_data = cartridge_data;
   mem->memory = calloc(0x10000, 1);
-  mem->write_handler = handler;
   mem->input = input;
 }
 
@@ -91,8 +90,6 @@ void memory_write(struct memory *mem, uint16_t addr, uint8_t value)
   else if (addr >= ADDR_ROM_BANK_SWITCH_START && addr < ADDR_ROM_BANK_SWITCH_END)
     mem->cartridge_bank = value;
   else mem->memory[addr] = value;
-
-  if (mem->write_handler) mem->write_handler(addr, value);
 }
 
 void memory_set_and_write_ppu_mode(struct memory *mem, enum ppu_mode mode)
