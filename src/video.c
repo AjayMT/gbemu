@@ -28,8 +28,9 @@ void load_palette(enum video_color *palette, uint8_t value)
 
 void draw_bg_line(struct video *video, struct memory *mem, uint8_t lcd_y)
 {
-  uint8_t use_tile_set_zero = memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 4);
-  uint8_t use_tile_map_zero = !(memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 3));
+  uint8_t use_tile_set_zero = memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_BG_DATA;
+  uint8_t use_tile_map_zero =
+    !(memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_BG_MAP);
 
   uint16_t tile_set_address = use_tile_set_zero ? ADDR_TILE_0_START : ADDR_TILE_1_START;
   uint16_t tile_map_address = use_tile_map_zero ? ADDR_BG_MAP_0_START : ADDR_BG_MAP_1_START;
@@ -80,8 +81,9 @@ void draw_bg_line(struct video *video, struct memory *mem, uint8_t lcd_y)
 
 void draw_window_line(struct video *video, struct memory *mem, uint8_t lcd_y)
 {
-  uint8_t use_tile_set_zero = memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 4);
-  uint8_t use_tile_map_zero = !(memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 6));
+  uint8_t use_tile_set_zero = memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_BG_DATA;
+  uint8_t use_tile_map_zero =
+    !(memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_WINDOW_MAP);
 
   uint16_t tile_set_address = use_tile_set_zero ? ADDR_TILE_0_START : ADDR_TILE_1_START;
   uint16_t tile_map_address = use_tile_map_zero ? ADDR_BG_MAP_0_START : ADDR_BG_MAP_1_START;
@@ -166,8 +168,8 @@ void draw_sprite(struct video *video, struct memory *mem, uint32_t sprite_n)
   if (sprite_y == 0 || sprite_y >= 160) return;
   if (sprite_x == 0 || sprite_x >= 168) return;
 
-  uint8_t sprite_size_multiplier = memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & (1 << 2)
-    ? 2 : 1;
+  uint8_t sprite_size_multiplier =
+    memory_read(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_OBJ_SIZE ? 2 : 1;
 
   uint16_t tile_set_location = ADDR_TILE_0_START;
 

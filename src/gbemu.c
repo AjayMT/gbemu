@@ -10,6 +10,7 @@
 #include "input.h"
 
 #define PIXEL_SIZE 5
+#define CYCLES_PER_FRAME 70368
 
 struct memory mem;
 struct cpu cpu;
@@ -21,7 +22,7 @@ sfRectangleShape **pixels;
 
 void cycle()
 {
-  int32_t remaining_cycles = 70368;
+  int32_t remaining_cycles = CYCLES_PER_FRAME;
   while (remaining_cycles > 0)
   {
     uint32_t cycles = 0;
