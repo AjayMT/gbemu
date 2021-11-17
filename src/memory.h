@@ -80,7 +80,6 @@ struct memory
 };
 
 void memory_init(struct memory *mem, uint8_t *cartridge_data, struct input *input);
-uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu);
-uint8_t memory_read(struct memory *mem, uint16_t addr);
+uint8_t memory_read(struct memory *mem, uint16_t addr, uint8_t ppu);
 void memory_write(struct memory *mem, uint16_t addr, uint8_t value);
 void memory_set_and_write_ppu_mode(struct memory *mem, enum ppu_mode mode);

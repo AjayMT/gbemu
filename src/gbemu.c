@@ -28,9 +28,9 @@ void cycle()
     cpu_handle_interrupts(&cpu, &mem);
     if (!cpu.halted)
     {
-      uint8_t a = memory_read(&mem, cpu.regs.pc);
-      uint8_t b = memory_read(&mem, cpu.regs.pc + 1);
-      uint8_t c = memory_read(&mem, cpu.regs.pc + 2);
+      uint8_t a = memory_read(&mem, cpu.regs.pc, 0);
+      uint8_t b = memory_read(&mem, cpu.regs.pc + 1, 0);
+      uint8_t c = memory_read(&mem, cpu.regs.pc + 2, 0);
       uint32_t clock_initial = cpu.clock;
       cpu_run_instruction(&cpu, &mem, a, b, c);
       cycles = cpu.clock - clock_initial;

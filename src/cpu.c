@@ -110,8 +110,8 @@ void push(struct cpu *cpu, struct memory *mem, uint16_t value)
 
 uint16_t pop(struct cpu *cpu, struct memory *mem)
 {
-  uint8_t lower_byte = memory_read(mem, cpu->regs.sp);
-  uint8_t upper_byte = memory_read(mem, cpu->regs.sp + 1);
+  uint8_t lower_byte = memory_read(mem, cpu->regs.sp, 0);
+  uint8_t upper_byte = memory_read(mem, cpu->regs.sp + 1, 0);
   cpu->regs.sp += 2;
   return (uint16_t)lower_byte | (uint16_t)(upper_byte << 8);
 }
@@ -247,7 +247,7 @@ void run_prefix_cb_instruction(struct cpu *cpu, struct memory *mem, uint8_t opco
 
   uint8_t value = 0;
   uint8_t mem_op = dests[(lower & 7)] == 0;
-  if (mem_op) value = memory_read(mem, cpu->regs.hl);
+  if (mem_op) value = memory_read(mem, cpu->regs.hl, 0);
   else value = *dests[lower & 7];
 
   value = functions[upper >> 2](cpu, upper & 3, lower >> 3, value);
@@ -336,9 +336,9 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   if (((lower == 6 && upper <= 6) || (lower == 0xE && upper <= 7)) && upper >= 4)
   {
     if (lower == 6)
-      *dests[upper] = memory_read(mem, cpu->regs.hl);
+      *dests[upper] = memory_read(mem, cpu->regs.hl, 0);
     else if (lower == 0xE)
-      *dests[upper - 4] = memory_read(mem, cpu->regs.hl);
+      *dests[upper - 4] = memory_read(mem, cpu->regs.hl, 0);
     cpu->regs.pc++;
     cpu->clock += 8;
     return;
@@ -367,7 +367,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     else value = sources[lower];
 
     uint8_t mem_read = lower == 6 || lower == 0xE;
-    if (mem_read) value = memory_read(mem, cpu->regs.hl);
+    if (mem_read) value = memory_read(mem, cpu->regs.hl, 0);
 
     arithmetic_logic_operations[upper - 8](cpu, value, lower >= 8);
 
@@ -396,7 +396,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     uint8_t mem_read = upper == 3;
     uint8_t value;
-    if (mem_read) value = memory_read(mem, cpu->regs.hl);
+    if (mem_read) value = memory_read(mem, cpu->regs.hl, 0);
     else value = *dests[upper + 4];
 
     if (lower == 4) inc_register_or_value(cpu, &value);
@@ -453,7 +453,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     uint16_t addresses[] = { cpu->regs.bc, cpu->regs.de, cpu->regs.hl, cpu->regs.hl };
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
-    *a = memory_read(mem, addresses[upper]);
+    *a = memory_read(mem, addresses[upper], 0);
     if (upper == 2) cpu->regs.hl++;
     else if (upper == 3) cpu->regs.hl--;
     cpu->regs.pc++;
@@ -528,7 +528,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint16_t address = 0xFF00 + (cpu->regs.bc & 0xFF);
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
     if (upper == 0xE) memory_write(mem, address, *a);
-    else *a = memory_read(mem, address);
+    else *a = memory_read(mem, address, 0);
     cpu->clock += 8;
     cpu->regs.pc++;
     return;
@@ -558,7 +558,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint16_t address = 0xFF00 + b;
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
     if (upper == 0xE) memory_write(mem, address, *a);
-    else *a = memory_read(mem, address);
+    else *a = memory_read(mem, address, 0);
     cpu->regs.pc += 2;
     cpu->clock += 12;
     return;
@@ -660,7 +660,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
     uint16_t address = (c << 8) | b;
     if (upper == 0xE) memory_write(mem, address, *a);
-    else *a = memory_read(mem, address);
+    else *a = memory_read(mem, address, 0);
     cpu->regs.pc += 3;
     cpu->clock += 16;
     return;
@@ -787,16 +787,19 @@ void cpu_handle_interrupts(struct cpu *cpu, struct memory *mem)
   uint16_t interrupt_vector = 0;
   uint8_t interrupt_flag = 0;
 
-  uint8_t vblank_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_VBLANK)
-    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_VBLANK);
-  uint8_t lcd_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_LCD)
-    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_LCD);
-  uint8_t timer_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_TIMER)
-    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_TIMER);
-  uint8_t serial_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_SERIAL)
-    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_SERIAL);
-  uint8_t input_interrupt = (memory_read(mem, ADDR_REG_INTERRUPT_ENABLED) & FLAG_INTERRUPT_INPUT)
-    && (memory_read(mem, ADDR_REG_INTERRUPT_FLAG) & FLAG_INTERRUPT_INPUT);
+  uint8_t interrupt_enabled_register = memory_read(mem, ADDR_REG_INTERRUPT_ENABLED, 0);
+  uint8_t interrupt_flag_register = memory_read(mem, ADDR_REG_INTERRUPT_FLAG, 0);
+
+  uint8_t vblank_interrupt = (interrupt_enabled_register & FLAG_INTERRUPT_VBLANK)
+    && (interrupt_flag_register & FLAG_INTERRUPT_VBLANK);
+  uint8_t lcd_interrupt = (interrupt_enabled_register & FLAG_INTERRUPT_LCD)
+    && (interrupt_flag_register & FLAG_INTERRUPT_LCD);
+  uint8_t timer_interrupt = (interrupt_enabled_register & FLAG_INTERRUPT_TIMER)
+    && (interrupt_flag_register & FLAG_INTERRUPT_TIMER);
+  uint8_t serial_interrupt = (interrupt_enabled_register & FLAG_INTERRUPT_SERIAL)
+    && (interrupt_flag_register & FLAG_INTERRUPT_SERIAL);
+  uint8_t input_interrupt = (interrupt_enabled_register & FLAG_INTERRUPT_INPUT)
+    && (interrupt_flag_register & FLAG_INTERRUPT_INPUT);
 
   if (vblank_interrupt)
   {

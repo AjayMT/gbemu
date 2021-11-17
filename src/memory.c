@@ -34,7 +34,7 @@ void memory_init(struct memory *mem, uint8_t *cartridge_data, struct input *inpu
   mem->input = input;
 }
 
-uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
+uint8_t memory_read(struct memory *mem, uint16_t addr, uint8_t ppu)
 {
   if (addr < 0x4000)
   {
@@ -45,7 +45,7 @@ uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
 
   if (addr < 0x8000)
     return mem->cartridge_data[addr + ((mem->cartridge_bank - 1) * 0x4000)];
-  if (addr < 0xA000 && !ppu && mem->ppu_mode == pmLCD_MODE_TRANSFER) return 0xFF;
+  if (addr < ADDR_BG_MAP_1_END && !ppu && mem->ppu_mode == pmLCD_MODE_TRANSFER) return 0xFF;
   if (
     addr >= 0xFE00 && addr < 0xFEA0 && !ppu
     && (mem->ppu_mode == pmLCD_MODE_TRANSFER || mem->ppu_mode == pmLCD_MODE_OAM)
@@ -58,11 +58,6 @@ uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
   return mem->memory[addr];
 }
 
-uint8_t memory_read(struct memory *mem, uint16_t addr)
-{
-  return memory_read_ppu(mem, addr, 0);
-}
-
 void dma_transfer(struct memory *mem, uint8_t value)
 {
   mem->memory[ADDR_REG_DMA] = value;
@@ -71,7 +66,7 @@ void dma_transfer(struct memory *mem, uint8_t value)
   {
     uint16_t src = start_address + i;
     uint16_t dest = 0xFE00 + i;
-    mem->memory[dest] = memory_read_ppu(mem, src, 1);
+    mem->memory[dest] = memory_read(mem, src, 1);
   }
 }
 

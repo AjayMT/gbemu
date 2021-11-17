@@ -10,7 +10,7 @@ void timer_init(struct timer *timer)
 
 uint32_t get_timer_frequency(struct memory *mem)
 {
-  uint8_t f = memory_read(mem, ADDR_REG_TAC) & FLAG_TIMER_CLOCK_MODE;
+  uint8_t f = memory_read(mem, ADDR_REG_TAC, 0) & FLAG_TIMER_CLOCK_MODE;
   switch (f)
   {
   case 0: return 4096;
@@ -25,13 +25,13 @@ void handle_overflow(struct timer *timer, struct memory *mem)
 {
   if (!timer->overflow) return;
   timer->overflow = 0;
-  memory_write(mem, ADDR_REG_TIMA, memory_read(mem, ADDR_REG_TMA));
+  memory_write(mem, ADDR_REG_TIMA, memory_read(mem, ADDR_REG_TMA, 0));
   mem->memory[ADDR_REG_INTERRUPT_FLAG] |= FLAG_INTERRUPT_TIMER;
 }
 
 void handle_tima(struct timer *timer, struct memory *mem, uint32_t cycles, uint16_t clock)
 {
-  if (!(memory_read(mem, ADDR_REG_TAC) & FLAG_TIMER_START))
+  if (!(memory_read(mem, ADDR_REG_TAC, 0) & FLAG_TIMER_START))
   {
     timer->tima_started = 0;
     return;
@@ -51,7 +51,7 @@ void handle_tima(struct timer *timer, struct memory *mem, uint32_t cycles, uint1
     uint8_t pulse = i & bit;
     if (timer->last_pulse && !pulse)
     {
-      uint8_t timer_value = memory_read(mem, ADDR_REG_TIMA) + 1;
+      uint8_t timer_value = memory_read(mem, ADDR_REG_TIMA, 0) + 1;
       timer->overflow = timer_value == 0;
       memory_write(mem, ADDR_REG_TIMA, timer_value);
     }
@@ -61,8 +61,8 @@ void handle_tima(struct timer *timer, struct memory *mem, uint32_t cycles, uint1
 
 void timer_cycle(struct timer *timer, struct memory *mem, uint32_t cycles)
 {
-  uint16_t internal_clock = (memory_read(mem, ADDR_REG_DIVIDER) << 8)
-    | memory_read(mem, ADDR_REG_INTERNAL_CLOCK_LOW);
+  uint16_t internal_clock = (memory_read(mem, ADDR_REG_DIVIDER, 0) << 8)
+    | memory_read(mem, ADDR_REG_INTERNAL_CLOCK_LOW, 0);
   internal_clock += cycles;
   mem->memory[ADDR_REG_DIVIDER] = (internal_clock & 0xFF00) >> 8;
   mem->memory[ADDR_REG_INTERNAL_CLOCK_LOW] = internal_clock & 0xFF;
