@@ -18,7 +18,6 @@ void graphics_init(struct graphics *graphics)
 
 void graphics_update_sprite_data(struct graphics *graphics, struct memory *mem)
 {
-  //printf("updating sprites\n");
   uint8_t big_sprite = memory_read_ppu(mem, ADDR_REG_LCD_CONTROL, 1) & FLAG_LCD_CONTROL_OBJ_SIZE;
   for (uint32_t i = 0; i < 40; ++i)
   {
@@ -31,7 +30,7 @@ void graphics_update_sprite_data(struct graphics *graphics, struct memory *mem)
     sprite.address = ADDR_OAM_START + (i * 4);
     sprite.y = y;
     sprite.x = x;
-    sprite.big = big_sprite;
+    sprite.big = big_sprite != 0;
     sprite.tile_idx = big_sprite ? tile_idx & 0xFE : tile_idx;
     sprite.flip_x = attributes & 32;
     sprite.flip_y = attributes & 64;

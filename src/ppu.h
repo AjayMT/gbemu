@@ -9,8 +9,10 @@
 
 struct ppu
 {
-  uint8_t front_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
-  uint8_t back_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
+  uint8_t front_sprite_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
+  uint8_t back_sprite_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
+  uint8_t front_bg_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
+  uint8_t back_bg_buffer[PIXEL_COLUMNS * PIXEL_ROWS];
   uint32_t cycles;
 };
 

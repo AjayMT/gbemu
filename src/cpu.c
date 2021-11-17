@@ -525,7 +525,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   // ld (0xFF00+c) a, ld a (0xFF00+c)
   if (lower == 2 && upper >= 0xE)
   {
-    uint16_t address = 0xFF00 + (cpu->regs.bc & 0xF);
+    uint16_t address = 0xFF00 + (cpu->regs.bc & 0xFF);
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
     if (upper == 0xE) memory_write(mem, address, *a);
     else *a = memory_read(mem, address);
@@ -747,27 +747,25 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
   {
     // behavior: https://ehaskins.com/2018-01-30%20Z80%20DAA/
     uint8_t *a = ((uint8_t *)&cpu->regs.af) + 1;
-    uint8_t carry = (cpu->regs.af & (1 << 4)) >> 4;
-    uint8_t half_carry = (cpu->regs.af & (1 << 5)) >> 5;
-    uint8_t subtract = (cpu->regs.af & (1 << 6)) >> 6;
-    uint16_t correction = 0;
+    uint8_t reg = *a;
+    uint16_t carry = (cpu->regs.af & (1 << 4)) >> 4;
+    uint16_t half_carry = (cpu->regs.af & (1 << 5)) >> 5;
+    uint16_t subtract = (cpu->regs.af & (1 << 6)) >> 6;
+    uint16_t correction = carry ? 0x60 : 0;
 
-    if (half_carry || (!subtract && ((*a & 0xF) > 9)))
+    if (half_carry || (!subtract && ((reg & 0xF) > 9)))
       correction |= 6;
 
-    if (carry || (!subtract && (*a > 0x99)))
+    if (carry || (!subtract && (reg > 0x99)))
       correction |= 0x60;
 
-    uint8_t result;
-    if (subtract)
-      result = (uint8_t)(*a - correction);
-    else
-      result = (uint8_t)(*a + correction);
+    if (subtract) reg = (uint8_t)(reg - correction);
+    else reg = (uint8_t)(reg + correction);
 
     cpu->regs.af &= ~(1 << 5);
     if (((correction << 2) & 0x100) != 0) cpu->regs.af |= 1 << 4;
-    if (result == 0) cpu->regs.af |= 1 << 7;
-    *a = (uint8_t)result;
+    if (reg == 0) cpu->regs.af |= 1 << 7;
+    *a = (uint8_t)reg;
 
     cpu->regs.pc++;
     cpu->clock += 4;
@@ -826,9 +824,9 @@ void cpu_handle_interrupts(struct cpu *cpu, struct memory *mem)
     interrupt_flag = FLAG_INTERRUPT_INPUT;
   }
 
+  if (interrupt_vector != 0) cpu->halted = 0;
   if (interrupt_vector == 0 || cpu->interrupts_enabled == 0) return;
 
-  cpu->halted = 0;
   cpu->interrupts_enabled = 0;
   mem->memory[ADDR_REG_INTERRUPT_FLAG] &= ~interrupt_flag;
   push(cpu, mem, cpu->regs.pc);

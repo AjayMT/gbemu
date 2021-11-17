@@ -7,8 +7,10 @@
 void ppu_init(struct ppu *ppu)
 {
   ppu->cycles = 0;
-  memset(ppu->front_buffer, LIGHTER_GREEN, sizeof(ppu->front_buffer));
-  memset(ppu->back_buffer, LIGHTER_GREEN, sizeof(ppu->back_buffer));
+  memset(ppu->front_sprite_buffer, TRANSPARENT, sizeof(ppu->front_sprite_buffer));
+  memset(ppu->back_sprite_buffer, TRANSPARENT, sizeof(ppu->back_sprite_buffer));
+  memset(ppu->front_bg_buffer, LIGHTER_GREEN, sizeof(ppu->front_bg_buffer));
+  memset(ppu->back_bg_buffer, LIGHTER_GREEN, sizeof(ppu->back_bg_buffer));
 }
 
 void oam(struct ppu *ppu, struct memory *mem)
@@ -91,10 +93,10 @@ void draw_sprites(struct ppu *ppu, struct memory *mem, struct graphics *graphics
 
       int16_t buf_x = sprite.x - 8 + j;
       if (
-        !(sprite.bg_prio && ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] != LIGHTER_GREEN)
+        !(sprite.bg_prio && ppu->back_bg_buffer[lcd_y * PIXEL_COLUMNS + buf_x] != LIGHTER_GREEN)
         && color != TRANSPARENT && buf_x < 160 && buf_x >= 0
         )
-        ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
+        ppu->back_sprite_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
     }
   }
 }
@@ -131,7 +133,7 @@ void draw_background(struct ppu *ppu, struct memory *mem, struct graphics *graph
       uint8_t pixel = tile[background_tile_y_offset * 8 + j];
       enum graphics_color color = graphics->bw_palette[pixel];
       int32_t buf_x = (i * 8) + j - background_tile_x_offset;
-      ppu->back_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
+      ppu->back_bg_buffer[lcd_y * PIXEL_COLUMNS + buf_x] = (uint8_t)color;
     }
   }
 }
@@ -162,7 +164,7 @@ void draw_window(struct ppu *ppu, struct memory *mem, struct graphics *graphics)
 
       uint8_t pixel = tile[((lcd_y - window_y) % 8) * 8 + j];
       enum graphics_color color = graphics->bw_palette[pixel];
-      ppu->back_buffer[lcd_y * PIXEL_COLUMNS + (tile_x * 8) + j + window_x] = (uint8_t)color;
+      ppu->back_bg_buffer[lcd_y * PIXEL_COLUMNS + (tile_x * 8) + j + window_x] = (uint8_t)color;
     }
     if (stop_off_screen) break;
   }
@@ -195,8 +197,10 @@ void vblank(struct ppu *ppu, struct memory *mem)
   if (memory_read_ppu(mem, ADDR_REG_LCD_Y, 1) == 144)
   {
     mem->memory[ADDR_REG_INTERRUPT_FLAG] |= FLAG_INTERRUPT_VBLANK;
-    memcpy(ppu->front_buffer, ppu->back_buffer, sizeof(ppu->front_buffer));
-    memset(ppu->back_buffer, LIGHTER_GREEN, sizeof(ppu->back_buffer));
+    memcpy(ppu->front_sprite_buffer, ppu->back_sprite_buffer, sizeof(ppu->front_sprite_buffer));
+    memcpy(ppu->front_bg_buffer, ppu->back_bg_buffer, sizeof(ppu->front_bg_buffer));
+    memset(ppu->back_sprite_buffer, TRANSPARENT, sizeof(ppu->back_sprite_buffer));
+    memset(ppu->back_bg_buffer, LIGHTER_GREEN, sizeof(ppu->back_bg_buffer));
   }
 
   if (memory_read_ppu(mem, ADDR_REG_LCD_Y, 1) == 153)

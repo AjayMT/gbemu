@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < PIXEL_COLUMNS * PIXEL_ROWS; ++i)
     {
       sfColor pixel_color;
-      switch (ppu.front_buffer[i])
+      switch (ppu.front_bg_buffer[i])
       {
       case LIGHTER_GREEN:
         pixel_color = sfColor_fromRGB(155, 188, 15);
@@ -171,6 +171,23 @@ int main(int argc, char *argv[])
         pixel_color = sfColor_fromRGB(15, 56, 15);
         break;
       }
+
+      switch (ppu.front_sprite_buffer[i])
+      {
+      case LIGHTER_GREEN:
+        pixel_color = sfColor_fromRGB(155, 188, 15);
+        break;
+      case LIGHT_GREEN:
+        pixel_color = sfColor_fromRGB(139, 172, 15);
+        break;
+      case DARK_GREEN:
+        pixel_color = sfColor_fromRGB(48, 98, 48);
+        break;
+      case DARKER_GREEN:
+        pixel_color = sfColor_fromRGB(15, 56, 15);
+        break;
+      }
+
       sfRectangleShape_setFillColor(pixels[i], pixel_color);
       sfRenderWindow_drawRectangleShape(window, pixels[i], NULL);
     }

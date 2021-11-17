@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 #include <string.h>
 #include "timer.h"
 
@@ -35,8 +36,6 @@ void handle_tima(struct timer *timer, struct memory *mem, uint32_t cycles, uint1
     timer->tima_started = 0;
     return;
   }
-
-  if (!(memory_read(mem, ADDR_REG_TMA) & FLAG_TIMER_START)) return;
 
   uint32_t prev_clock = clock - cycles;
   if (!timer->tima_started)

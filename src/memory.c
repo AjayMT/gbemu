@@ -50,6 +50,7 @@ uint8_t memory_read_ppu(struct memory *mem, uint16_t addr, uint8_t ppu)
     && (mem->ppu_mode == pmLCD_MODE_TRANSFER || mem->ppu_mode == pmLCD_MODE_OAM)
     )
     return 0xFF;
+  if (addr == 0xFF4D) return 0xFF;
   return mem->memory[addr];
 }
 
@@ -62,7 +63,6 @@ void dma_transfer(struct memory *mem, uint8_t value)
 {
   mem->memory[ADDR_REG_DMA] = value;
   uint16_t start_address = value << 8;
-  printf("dma from %hx\n", start_address);
   for (uint32_t i = 0; i < 0xA0; ++i)
   {
     uint16_t src = start_address + i;
