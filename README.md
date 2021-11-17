@@ -28,7 +28,7 @@ The `<filename>` argument is the path to a GameBoy ROM file.
 ## Testing
 Build the tests as specified in the "Build" section, and then run the `gbemu_tests` executable; these are the unit tests.
 
-The manual testing plan (WIP) will be documented in TESTING.md.
+The manual testing plan is documented in TESTING.md.
 
 ## Documentation
 As CPU instructions and features are implemented, they will be documented in DOC.md.
