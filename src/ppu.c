@@ -73,14 +73,14 @@ void draw_sprites(struct ppu *ppu, struct memory *mem, struct graphics *graphics
   for (int32_t i = start_idx - 1; i >= 0; --i)
   {
     struct graphics_sprite sprite = sprites[i];
-    uint8_t *tile = graphics->tile_1[sprite.tile_idx];
-    uint8_t tile_y_correction = 16;
-    if (sprite.big && lcd_y >= sprite.y - 8 && !sprite.flip_y)
-    {
-      tile = graphics->tile_1[sprite.tile_idx + 1];
-      tile_y_correction = 8;
-    }
+    uint8_t *tile = sprite.big && lcd_y >= sprite.y - 8
+      ? graphics->tile_1[sprite.tile_idx + 1]
+      : graphics->tile_1[sprite.tile_idx];
+    tile = sprite.flip_y && sprite.big && lcd_y >= sprite.y - 8
+      ? graphics->tile_1[sprite.tile_idx - 1]
+      : tile;
 
+    uint8_t tile_y_correction = sprite.big && lcd_y >= sprite.y - 8 ? 16 : 8;
     uint8_t tile_y = lcd_y - (sprite.y - tile_y_correction);
     if (sprite.flip_y) tile_y = abs(lcd_y - (sprite.y - tile_y_correction + 7));
 

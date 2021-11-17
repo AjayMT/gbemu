@@ -762,7 +762,7 @@ void cpu_run_instruction(struct cpu *cpu, struct memory *mem, uint8_t a, uint8_t
     if (subtract) reg = (uint8_t)(reg - correction);
     else reg = (uint8_t)(reg + correction);
 
-    cpu->regs.af &= ~(1 << 5);
+    cpu->regs.af &= ~0b10110000;
     if (((correction << 2) & 0x100) != 0) cpu->regs.af |= 1 << 4;
     if (reg == 0) cpu->regs.af |= 1 << 7;
     *a = (uint8_t)reg;

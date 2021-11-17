@@ -53,7 +53,6 @@ void graphics_update_background_map(
   struct graphics *graphics, struct memory *mem, uint16_t start_address
   )
 {
-  //printf("updating background map\n");
   uint8_t *map = graphics->background_map_0;
   if (start_address == ADDR_BG_MAP_1_START) map = graphics->background_map_1;
   for (uint32_t i = 0; i < 32 * 32; ++i)
@@ -81,7 +80,6 @@ void update_tile(uint8_t **tiles, struct memory *mem, uint16_t start_address)
 
 void graphics_update_tiles(struct graphics *graphics, struct memory *mem, uint16_t address)
 {
-  //printf("updating tiles\n");
   if (address >= ADDR_TILE_0_START && address < ADDR_TILE_0_END)
     update_tile(graphics->tile_0, mem, ADDR_TILE_0_START);
   if (address >= ADDR_TILE_1_START && address < ADDR_TILE_1_END)
@@ -99,7 +97,6 @@ uint8_t *graphics_get_background_tile(
 
 void graphics_update_color_palette(struct graphics *graphics, uint16_t address, uint8_t value)
 {
-  //printf("updating color palette %hx %hx\n", address, value);
   enum graphics_color *palette = graphics->bw_palette;
   uint8_t lower_is_transparent = 0;
   if (address == ADDR_REG_OB_PALETTE_0)
