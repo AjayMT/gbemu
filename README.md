@@ -25,6 +25,16 @@ gbemu <filename>
 
 The `<filename>` argument is the path to a GameBoy ROM file.
 
+gbemu uses the following keybindings:
+- <kbd>A</kbd>: "A" button
+- <kbd>S</kbd>: "B" button
+- <kbd>Up</kbd>: "Up" button
+- <kbd>Down</kbd>: "Down" button
+- <kbd>Left</kbd>: "Left" button
+- <kbd>Right</kbd>: "Right" button
+- <kbd>Enter</kbd>: "Start" button
+- <kbd>'</kbd>: "Select" button
+
 ## Testing
 Build the tests as specified in the "Build" section, and then run the `gbemu_tests` executable; these are the unit tests.
 
