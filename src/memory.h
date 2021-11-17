@@ -10,10 +10,10 @@
 #define ADDR_VECTOR_INPUT           0x60
 #define ADDR_ROM_BANK_SWITCH_START  0x2000
 #define ADDR_ROM_BANK_SWITCH_END    0x4000
-#define ADDR_TILE_1_START           0x8000
-#define ADDR_TILE_1_END             0x9000
-#define ADDR_TILE_0_START           0x8800
-#define ADDR_TILE_0_END             0x9800
+#define ADDR_TILE_0_START           0x8000
+#define ADDR_TILE_0_END             0x9000
+#define ADDR_TILE_1_START           0x8800
+#define ADDR_TILE_1_END             0x9800
 #define ADDR_BG_MAP_0_START         0x9800
 #define ADDR_BG_MAP_1_START         0x9C00
 #define ADDR_BG_MAP_1_END           0xA000
