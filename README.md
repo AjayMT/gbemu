@@ -1,6 +1,9 @@
 
 # gbemu
-gbemu is a simple GameBoy emulator. It is currently a work in progress.
+gbemu is a simple GameBoy emulator. It is currently a work in progress; see the TODO section.
+
+![](https://raw.githubusercontent.com/AjayMT/gbemu/master/images/cpu.png)
+![](https://raw.githubusercontent.com/AjayMT/gbemu/master/images/tetris.png)
 
 ## Build
 Requirements:
@@ -35,10 +38,7 @@ gbemu uses the following keybindings:
 - <kbd>Enter</kbd>: "Start" button
 - <kbd>'</kbd>: "Select" button
 
-## Testing
-Build the tests as specified in the "Build" section, and then run the `gbemu_tests` executable; these are the unit tests.
-
-The manual testing plan is documented in TESTING.md.
-
-## Documentation
-As CPU instructions and features are implemented, they will be documented in DOC.md.
+## TODO
+- Audio
+- Saving data persistently
+- Save states
