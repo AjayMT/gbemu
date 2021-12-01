@@ -9,7 +9,7 @@
 #include "timer.h"
 #include "input.h"
 
-#define PIXEL_SIZE 5
+#define PIXEL_SIZE 4
 #define CYCLES_PER_FRAME 70368
 
 struct memory mem;
@@ -18,7 +18,9 @@ struct video video;
 struct timer timer;
 struct input input;
 sfRenderWindow *window;
-sfRectangleShape **pixels;
+sfSprite *sprite;
+sfTexture *texture;
+uint8_t *pixels;
 
 void cycle()
 {
@@ -47,7 +49,6 @@ void cycle()
 
 void draw_callback(uint8_t *frame_buffer)
 {
-  sfRenderWindow_clear(window, sfBlack);
   for (uint32_t i = 0; i < PIXEL_COLUMNS * PIXEL_ROWS; ++i)
   {
     sfColor pixel_color;
@@ -67,9 +68,13 @@ void draw_callback(uint8_t *frame_buffer)
       break;
     }
 
-    sfRectangleShape_setFillColor(pixels[i], pixel_color);
-    sfRenderWindow_drawRectangleShape(window, pixels[i], NULL);
+    pixels[i * 4] = pixel_color.r;
+    pixels[i * 4 + 1] = pixel_color.g;
+    pixels[i * 4 + 2] = pixel_color.b;
+    pixels[i * 4 + 3] = 255;
   }
+  sfTexture_updateFromPixels(texture, pixels, PIXEL_COLUMNS, PIXEL_ROWS, 0, 0);
+  sfRenderWindow_drawSprite(window, sprite, NULL);
   sfRenderWindow_display(window);
 }
 
@@ -98,17 +103,16 @@ int main(int argc, char *argv[])
     (sfVideoMode) { PIXEL_COLUMNS * PIXEL_SIZE, PIXEL_ROWS * PIXEL_SIZE, 32 },
     "GBEMU", sfDefaultStyle, NULL
     );
+  sprite = sfSprite_create();
+  texture = sfTexture_create(PIXEL_COLUMNS, PIXEL_ROWS);
 
-  pixels = malloc(PIXEL_COLUMNS * PIXEL_ROWS * sizeof(sfRectangleShape *));
-  for (uint32_t i = 0; i < PIXEL_COLUMNS * PIXEL_ROWS; ++i)
-  {
-    pixels[i] = sfRectangleShape_create();
-    sfRectangleShape_setFillColor(pixels[i], sfWhite);
-    sfRectangleShape_setSize(pixels[i], (sfVector2f) { PIXEL_SIZE, PIXEL_SIZE });
-    sfRectangleShape_setPosition(
-      pixels[i], (sfVector2f) { (i % PIXEL_COLUMNS) * PIXEL_SIZE, (i / PIXEL_COLUMNS) * PIXEL_SIZE }
-      );
-  }
+  pixels = calloc(PIXEL_COLUMNS * PIXEL_ROWS * 4, sizeof(uint8_t));
+
+  sfTexture_updateFromPixels(texture, pixels, PIXEL_COLUMNS, PIXEL_ROWS, 0, 0);
+  sfSprite_setTexture(sprite, texture, 1);
+  sfSprite_setScale(sprite, (sfVector2f) { PIXEL_SIZE, PIXEL_SIZE });
+  sfRenderWindow_drawSprite(window, sprite, NULL);
+  sfRenderWindow_display(window);
 
   while (sfRenderWindow_isOpen(window))
   {
