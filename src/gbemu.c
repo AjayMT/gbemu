@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <SFML/Window.h>
 #include <SFML/Graphics.h>
+#include <unistd.h>
 #include "memory.h"
 #include "cpu.h"
 #include "video.h"
@@ -11,6 +12,7 @@
 
 #define PIXEL_SIZE 4
 #define CYCLES_PER_FRAME 70368
+#define MICROS_PER_FRAME 5000
 
 struct memory mem;
 struct cpu cpu;
@@ -141,6 +143,7 @@ int main(int argc, char *argv[])
     }
 
     cycle();
+    usleep(MICROS_PER_FRAME);
   }
 
   return 0;
